@@ -1,6 +1,9 @@
 package main
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
 type direction uint8
 
@@ -217,4 +220,75 @@ func main() {
 		},
 	}
 	g.solve(5)
+
+	parseBoard()
 }
+
+func parseBoard() {
+	input := `•---•---•---•
+| R     | B |
+•   •   •   •
+|           |
+•   •   •   •
+|         G |
+•---•---•---•`
+
+	// I can do smarter parsing without the edge cases by always working in 3 part rows
+	// just only advance the row pointer by 2
+	// read everything into buffer initially
+
+	// TODO: trim trailing newlines when input comes from files
+	lines := strings.Split(input, "\n")
+	size := len(strings.Split(lines[0], "---")) - 1
+
+	board := make([]square, size*size)
+
+	for row := 0; row < size; row++ {
+		for col := 0; col < size; col++ {
+			// top
+			tLine := lines[row*2]
+			if tLine[(col*6)+5] == '-' { // weird math cause 3byte utf8 char
+				board[(row*size)+col] = board[(row*size)+col] | square(UP)
+			}
+			// bottom
+			bLine := lines[(row*2)+2]
+			if bLine[(col*6)+5] == '-' {
+				board[(row*size)+col] = board[(row*size)+col] | square(DOWN)
+			}
+			// left
+			mLine := lines[(row*2)+1]
+			if mLine[col*4] == '|' {
+				board[(row*size)+col] = board[(row*size)+col] | square(LEFT)
+			}
+			// right
+			if mLine[(col+1)*4] == '|' {
+				board[(row*size)+col] = board[(row*size)+col] | square(RIGHT)
+			}
+			//center
+			if mLine[(col*4)+2] != ' ' {
+				board[(row*size)+col] = board[(row*size)+col] | square(ROBOT)
+			}
+		}
+	}
+
+	fmt.Printf("board: %+v\n", board)
+	for _, b := range board {
+		u := b&square(UP) != 0
+		d := b&square(DOWN) != 0
+		l := b&square(LEFT) != 0
+		r := b&square(RIGHT) != 0
+		robot := b&square(ROBOT) != 0
+		fmt.Printf("U:%s, D:%s, L:%s, R:%s, ROBOT:%s\n", u, d, l, r, robot)
+
+	}
+}
+
+/*
+func printBoard(b []square, size int) {
+
+	for row := 0; row < size; row++ {
+
+
+	}
+}
+*/
