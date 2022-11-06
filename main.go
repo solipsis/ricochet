@@ -7,6 +7,24 @@ import (
 
 type direction uint8
 
+type goal struct {
+	id       byte
+	position uint32
+}
+
+type game struct {
+	size         int
+	board        []square
+	moves        []move
+	robots       map[byte]*robot
+	activeRobot  *robot
+	goals        []goal
+	activeGoal   goal
+	visits       int
+	cache        map[uint32]int
+	optimalMoves []uint32
+}
+
 const (
 	UP direction = 1 << iota
 	DOWN
@@ -136,10 +154,13 @@ func (g *game) search(depth int, maxDepth int) bool {
 		return true
 	}
 
-	// check precompute
+	// if too far from optimalMoves needed to get to goal give up
+	optimalMoves := int(g.optimalMoves[g.activeRobot.position])
+	if optimalMoves > maxDepth-depth {
+		return false
+	}
 
 	// check state cache
-
 	prev, ok := g.cache[g.state()]
 	if !ok || prev < maxDepth-depth {
 		// better than previous
@@ -157,6 +178,7 @@ func (g *game) search(depth int, maxDepth int) bool {
 	g.visits += 1
 
 	for i, r := range g.robots {
+
 		for _, dir := range directions {
 			prevPosition := r.position
 
@@ -202,23 +224,6 @@ func (g *game) solve(maxDepth int) {
 }
 
 var directions = []direction{UP, DOWN, LEFT, RIGHT}
-
-type goal struct {
-	id       byte
-	position uint32
-}
-
-type game struct {
-	size        int
-	board       []square
-	moves       []move
-	robots      map[byte]*robot
-	activeRobot *robot
-	goals       []goal
-	activeGoal  goal
-	visits      int
-	cache       map[uint32]int
-}
 
 func (g *game) state() uint32 {
 	s := g.robots['R'].position
@@ -353,8 +358,10 @@ func parseBoard() game {
 		activeGoal:  goals[0],
 		cache:       make(map[uint32]int),
 	}
-	g.solve(15)
+	g.optimalMoves = g.preCompute(g.activeGoal.position)
 
+	g.solve(15)
+	// ~ 1.8 mil states before compute
 	return g
 	/*
 		//fmt.Println("robits: %+v\n", g.robots)
