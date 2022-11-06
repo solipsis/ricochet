@@ -3,6 +3,8 @@ package main
 import (
 	"fmt"
 	"strings"
+	"sync"
+	"time"
 )
 
 type direction uint8
@@ -208,19 +210,25 @@ func (g *game) search(depth int, maxDepth int) bool {
 	return false
 }
 
-func (g *game) solve(maxDepth int) {
+func (g *game) solve(maxDepth int) string {
 	for currentMaxDepth := 1; currentMaxDepth < maxDepth; currentMaxDepth++ {
 		success := g.search(0, currentMaxDepth)
 		if success {
-			fmt.Println("yay")
+			//fmt.Println("yay")
+			var moveStrs []string
 			for _, m := range g.moves {
-				fmt.Println(m.String())
+				moveStrs = append(moveStrs, m.String())
+				//fmt.Printf("%s%s", m.String(), suffix)
+				//suffix = "-"
 			}
-			fmt.Println(g.visits)
-			break
+			//fmt.Println(strings.Join(moveStrs, "-"))
+			//	fmt.Println(g.visits)
+			return strings.Join(moveStrs, "-")
+			//break
 		}
 	}
 	fmt.Println(g.visits)
+	return "no solution in move limit"
 }
 
 var directions = []direction{UP, DOWN, LEFT, RIGHT}
@@ -235,40 +243,41 @@ func (g *game) state() uint32 {
 }
 
 func main() {
-	g := game{
-		size: 3,
-		board: []square{
-			0 | square(UP) | square(LEFT) | square(ROBOT),
-			0 | square(UP) | square(RIGHT) | square(ROBOT),
-			0 | square(UP) | square(LEFT) | square(RIGHT) | square(ROBOT),
-			0 | square(LEFT),
-			0,
-			0 | square(RIGHT),
-			0 | square(LEFT) | square(DOWN),
-			0 | square(DOWN),
-			0 | square(RIGHT) | square(DOWN) | square(ROBOT),
-		},
-		robots: map[byte]*robot{
-			'R': {position: 0, id: 'R'},
-			'B': {position: 2, id: 'B'},
-			'G': {position: 8, id: 'G'},
-			'Y': {position: 1, id: 'Y'},
-		},
-		activeGoal: goal{position: 2, id: 'R'},
-		cache:      make(map[uint32]int),
-	}
-	g.activeRobot = g.robots['R']
 	/*
-		for _, b := range g.board {
-			u := b&square(UP) != 0
-			d := b&square(DOWN) != 0
-			l := b&square(LEFT) != 0
-			r := b&square(RIGHT) != 0
-			robot := b&square(ROBOT) != 0
-			fmt.Printf("U:%s, D:%s, L:%s, R:%s, ROBOT:%s\n", u, d, l, r, robot)
+		g := game{
+			size: 3,
+			board: []square{
+				0 | square(UP) | square(LEFT) | square(ROBOT),
+				0 | square(UP) | square(RIGHT) | square(ROBOT),
+				0 | square(UP) | square(LEFT) | square(RIGHT) | square(ROBOT),
+				0 | square(LEFT),
+				0,
+				0 | square(RIGHT),
+				0 | square(LEFT) | square(DOWN),
+				0 | square(DOWN),
+				0 | square(RIGHT) | square(DOWN) | square(ROBOT),
+			},
+			robots: map[byte]*robot{
+				'R': {position: 0, id: 'R'},
+				'B': {position: 2, id: 'B'},
+				'G': {position: 8, id: 'G'},
+				'Y': {position: 1, id: 'Y'},
+			},
+			activeGoal: goal{position: 2, id: 'R'},
+			cache:      make(map[uint32]int),
 		}
+		g.activeRobot = g.robots['R']
+		/*
+			for _, b := range g.board {
+				u := b&square(UP) != 0
+				d := b&square(DOWN) != 0
+				l := b&square(LEFT) != 0
+				r := b&square(RIGHT) != 0
+				robot := b&square(ROBOT) != 0
+				fmt.Printf("U:%s, D:%s, L:%s, R:%s, ROBOT:%s\n", u, d, l, r, robot)
+			}
 
-		fmt.Printf("g %+\n", g)
+			fmt.Printf("g %+\n", g)
 	*/
 
 	/*
@@ -358,9 +367,53 @@ func parseBoard() game {
 		activeGoal:  goals[0],
 		cache:       make(map[uint32]int),
 	}
-	g.optimalMoves = g.preCompute(g.activeGoal.position)
 
-	g.solve(15)
+	/*
+		for _, goal := range g.goals {
+				g.moves = make([]move, 0)
+				g.cache = make(map[uint32]int)
+				g.visits = 0
+
+				g.activeRobot = g.robots[goal.id]
+				g.activeGoal = goal
+			cpy := g.clone()
+			cpy.activeGoal = goal
+			cpy.activeRobot = cpy.robots[goal.id]
+			cpy.optimalMoves = cpy.preCompute(cpy.activeGoal.position)
+			cpy.solve(15)
+		}
+	*/
+
+	start := time.Now()
+	var wg sync.WaitGroup
+	results := make(chan string)
+	for idx, ig := range g.goals {
+		wg.Add(1)
+		go func(target goal, index int) {
+			defer wg.Done()
+			cpy := g.clone()
+			cpy.activeGoal = target
+			cpy.activeRobot = cpy.robots[target.id]
+			cpy.optimalMoves = cpy.preCompute(cpy.activeGoal.position)
+			res := cpy.solve(15)
+			results <- fmt.Sprintf("Puzzle: %d -> %s", index, res)
+
+		}(ig, idx)
+	}
+
+	done := make(chan struct{})
+	go func() {
+		for msg := range results {
+			fmt.Println(msg)
+		}
+		close(done)
+	}()
+
+	wg.Wait()
+	close(results)
+	<-done
+	fmt.Printf("Total Time: %s \n", time.Since(start))
+
 	// ~ 1.8 mil states before compute
 	return g
 	/*
@@ -373,4 +426,30 @@ func parseBoard() game {
 		g.solve(6)
 	*/
 
+}
+
+func (g *game) clone() game {
+	board := make([]square, len(g.board))
+	copy(board, g.board)
+
+	robots := make(map[byte]*robot)
+	for _, r := range g.robots {
+		robots[r.id] = &robot{id: r.id, position: r.position}
+	}
+
+	goals := make([]goal, len(g.goals))
+	copy(goals, g.goals)
+
+	ng := game{
+		size:        g.size,
+		board:       board,
+		robots:      robots,
+		moves:       make([]move, 0),
+		cache:       make(map[uint32]int),
+		visits:      0,
+		activeRobot: robots[g.activeRobot.id],
+		goals:       goals,
+		activeGoal:  g.activeGoal,
+	}
+	return ng
 }

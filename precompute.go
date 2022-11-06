@@ -1,7 +1,5 @@
 package main
 
-import "fmt"
-
 // calculate the minimal number of moves it would take to get to the target
 // if the moving piece could move like a rook (stopping arbitrarily). This helps greatly prune
 // the search space
@@ -48,15 +46,17 @@ func (g *game) preCompute(target uint32) []uint32 {
 		}
 	}
 
-	for x := 0; x < g.size; x++ {
-		fmt.Printf("\n")
-		for y := 0; y < g.size; y++ {
-			if optimalMoves[(x*g.size)+y] > 20 {
-				fmt.Printf("X")
-			} else {
-				fmt.Printf("%d", optimalMoves[(x*g.size)+y])
+	/*
+		for x := 0; x < g.size; x++ {
+			fmt.Printf("\n")
+			for y := 0; y < g.size; y++ {
+				if optimalMoves[(x*g.size)+y] > 20 {
+					fmt.Printf("X")
+				} else {
+					fmt.Printf("%d", optimalMoves[(x*g.size)+y])
+				}
 			}
 		}
-	}
+	*/
 	return optimalMoves
 }
