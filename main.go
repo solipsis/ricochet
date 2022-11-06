@@ -140,6 +140,16 @@ func (g *game) search(depth int, maxDepth int) bool {
 
 	// check state cache
 
+	prev, ok := g.cache[g.state()]
+	if !ok || prev < maxDepth-depth {
+		// better than previous
+		g.cache[g.state()] = maxDepth - depth
+	} else {
+		//	fmt.Println("cache hit")
+		// we've been here and its worse
+		return false
+	}
+
 	if depth > maxDepth {
 		return false
 	}
@@ -207,14 +217,24 @@ type game struct {
 	goals       []goal
 	activeGoal  goal
 	visits      int
+	cache       map[uint32]int
+}
+
+func (g *game) state() uint32 {
+	s := g.robots['R'].position
+	s |= g.robots['B'].position << 8
+	s |= g.robots['G'].position << 16
+	s |= g.robots['Y'].position << 24
+
+	return s
 }
 
 func main() {
 	g := game{
 		size: 3,
 		board: []square{
-			0 | square(UP) | square(LEFT),
-			0 | square(UP) | square(RIGHT),
+			0 | square(UP) | square(LEFT) | square(ROBOT),
+			0 | square(UP) | square(RIGHT) | square(ROBOT),
 			0 | square(UP) | square(LEFT) | square(RIGHT) | square(ROBOT),
 			0 | square(LEFT),
 			0,
@@ -227,8 +247,10 @@ func main() {
 			'R': {position: 0, id: 'R'},
 			'B': {position: 2, id: 'B'},
 			'G': {position: 8, id: 'G'},
+			'Y': {position: 1, id: 'Y'},
 		},
 		activeGoal: goal{position: 2, id: 'R'},
+		cache:      make(map[uint32]int),
 	}
 	g.activeRobot = g.robots['R']
 	/*
@@ -249,7 +271,7 @@ func main() {
 		fmt.Printf("size: %d %d\nl"
 	*/
 
-	g.solve(5)
+	//	g.solve(5)
 	parseBoard()
 
 }
@@ -270,6 +292,8 @@ func parseBoard() game {
 •   •   •   •
 |         G |
 •---•---•---•`
+
+	input = fullBoard
 
 	fmt.Println("----------------------------")
 
@@ -327,8 +351,9 @@ func parseBoard() game {
 		goals:       goals,
 		activeRobot: robots['R'],
 		activeGoal:  goals[0],
+		cache:       make(map[uint32]int),
 	}
-	g.solve(6)
+	g.solve(15)
 
 	return g
 	/*
