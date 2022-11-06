@@ -130,8 +130,9 @@ func (g *game) move(r *robot, dir direction) bool {
 }
 
 func (g *game) search(depth int, maxDepth int) bool {
+
 	// check if game over
-	if g.robots[0].position == goal {
+	if g.activeRobot.position == g.activeGoal.position {
 		return true
 	}
 
@@ -147,10 +148,11 @@ func (g *game) search(depth int, maxDepth int) bool {
 
 	for i, r := range g.robots {
 		for _, dir := range directions {
-			prevRobot := r
+			prevPosition := r.position
 
 			// attempt to move robot
-			if !g.move(&g.robots[i], dir) {
+			if !g.move(r, dir) {
+
 				continue
 			}
 			g.moves = append(g.moves, move{id: r.id, dir: dir})
@@ -158,9 +160,10 @@ func (g *game) search(depth int, maxDepth int) bool {
 			success := g.search(depth+1, maxDepth)
 
 			// undo move
-			g.board[prevRobot.position] = g.board[prevRobot.position] | square(ROBOT)
+			g.board[prevPosition] = g.board[prevPosition] | square(ROBOT)
 			g.board[g.robots[i].position] = g.board[g.robots[i].position] ^ square(ROBOT)
-			g.robots[i] = prevRobot
+			//g.robots[i] = prevRobot
+			r.position = prevPosition
 
 			if success {
 				return true
@@ -185,19 +188,26 @@ func (g *game) solve(maxDepth int) {
 			break
 		}
 	}
+	fmt.Println(g.visits)
 }
 
 var directions = []direction{UP, DOWN, LEFT, RIGHT}
 
-type game struct {
-	size   int
-	board  []square
-	moves  []move
-	robots []robot
-	visits int
+type goal struct {
+	id       byte
+	position uint32
 }
 
-const goal = 2
+type game struct {
+	size        int
+	board       []square
+	moves       []move
+	robots      map[byte]*robot
+	activeRobot *robot
+	goals       []goal
+	activeGoal  goal
+	visits      int
+}
 
 func main() {
 	g := game{
@@ -213,25 +223,55 @@ func main() {
 			0 | square(DOWN),
 			0 | square(RIGHT) | square(DOWN) | square(ROBOT),
 		},
-		robots: []robot{
-			{position: 0, id: 'R'},
-			{position: 2, id: 'B'},
-			{position: 8, id: 'G'},
+		robots: map[byte]*robot{
+			'R': {position: 0, id: 'R'},
+			'B': {position: 2, id: 'B'},
+			'G': {position: 8, id: 'G'},
 		},
+		activeGoal: goal{position: 2, id: 'R'},
 	}
-	g.solve(5)
+	g.activeRobot = g.robots['R']
+	/*
+		for _, b := range g.board {
+			u := b&square(UP) != 0
+			d := b&square(DOWN) != 0
+			l := b&square(LEFT) != 0
+			r := b&square(RIGHT) != 0
+			robot := b&square(ROBOT) != 0
+			fmt.Printf("U:%s, D:%s, L:%s, R:%s, ROBOT:%s\n", u, d, l, r, robot)
+		}
 
+		fmt.Printf("g %+\n", g)
+	*/
+
+	/*
+		g2 := parseBoard()
+		fmt.Printf("size: %d %d\nl"
+	*/
+
+	g.solve(5)
 	parseBoard()
+
 }
 
-func parseBoard() {
+func (g *game) setRobot(id byte, pos uint32) {
+	for idx, v := range g.robots {
+		if v.id == id {
+			g.robots[idx].position = pos
+		}
+	}
+}
+
+func parseBoard() game {
 	input := `•---•---•---•
 | R     | B |
 •   •   •   •
-|           |
+|     r     |
 •   •   •   •
 |         G |
 •---•---•---•`
+
+	fmt.Println("----------------------------")
 
 	// I can do smarter parsing without the edge cases by always working in 3 part rows
 	// just only advance the row pointer by 2
@@ -242,6 +282,8 @@ func parseBoard() {
 	size := len(strings.Split(lines[0], "---")) - 1
 
 	board := make([]square, size*size)
+	robots := make(map[byte]*robot)
+	goals := make([]goal, 0)
 
 	for row := 0; row < size; row++ {
 		for col := 0; col < size; col++ {
@@ -266,29 +308,37 @@ func parseBoard() {
 			}
 			//center
 			if mLine[(col*4)+2] != ' ' {
-				board[(row*size)+col] = board[(row*size)+col] | square(ROBOT)
+				c := mLine[(col*4)+2]
+				if c >= 'A' && c <= 'Z' {
+					board[(row*size)+col] = board[(row*size)+col] | square(ROBOT)
+					robots[c] = &robot{id: c, position: uint32((row * size) + col)}
+				}
+				if c >= 'a' && c <= 'z' {
+					goals = append(goals, goal{id: c - 32, position: uint32((row * size) + col)})
+				}
 			}
 		}
 	}
 
-	fmt.Printf("board: %+v\n", board)
-	for _, b := range board {
-		u := b&square(UP) != 0
-		d := b&square(DOWN) != 0
-		l := b&square(LEFT) != 0
-		r := b&square(RIGHT) != 0
-		robot := b&square(ROBOT) != 0
-		fmt.Printf("U:%s, D:%s, L:%s, R:%s, ROBOT:%s\n", u, d, l, r, robot)
-
+	g := game{
+		size:        size,
+		board:       board,
+		robots:      robots,
+		goals:       goals,
+		activeRobot: robots['R'],
+		activeGoal:  goals[0],
 	}
+	g.solve(6)
+
+	return g
+	/*
+		//fmt.Println("robits: %+v\n", g.robots)
+		for _, r := range g.robots {
+			fmt.Printf("robot: %+v\n", r)
+		}
+		fmt.Printf("goal: %+v\n", g.activeGoal)
+		fmt.Printf("robit: %+v\n", g.activeRobot)
+		g.solve(6)
+	*/
+
 }
-
-/*
-func printBoard(b []square, size int) {
-
-	for row := 0; row < size; row++ {
-
-
-	}
-}
-*/
