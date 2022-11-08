@@ -10,7 +10,7 @@ import (
 
 type direction uint8
 
-type goal struct {
+type Goal struct {
 	id       byte
 	position uint32
 }
@@ -21,8 +21,8 @@ type game struct {
 	moves        []move
 	robots       map[byte]*robot
 	activeRobot  *robot
-	goals        []goal
-	activeGoal   goal
+	goals        []Goal
+	activeGoal   Goal
 	visits       int
 	cache        map[uint32]int
 	optimalMoves []uint32
@@ -307,7 +307,7 @@ func parseBoard() game {
 
 	board := make([]square, size*size)
 	robots := make(map[byte]*robot)
-	goals := make([]goal, 0)
+	goals := make([]Goal, 0)
 
 	for row := 0; row < size; row++ {
 		for col := 0; col < size; col++ {
@@ -338,7 +338,7 @@ func parseBoard() game {
 					robots[c] = &robot{id: c, position: uint32((row * size) + col)}
 				}
 				if c >= 'a' && c <= 'z' {
-					goals = append(goals, goal{id: c - 32, position: uint32((row * size) + col)})
+					goals = append(goals, Goal{id: c - 32, position: uint32((row * size) + col)})
 				}
 			}
 		}
@@ -376,7 +376,7 @@ func parseBoard() game {
 	rand.Seed(time.Now().UnixNano())
 	for idx, ig := range g.goals {
 		wg.Add(1)
-		go func(target goal, index int) {
+		go func(target Goal, index int) {
 			defer wg.Done()
 			cpy := g.clone()
 			cpy.activeGoal = target
@@ -403,6 +403,8 @@ func parseBoard() game {
 	<-done
 	fmt.Printf("Total Time: %s \n", stop)
 
+	printBoard(g.board, g.size, g.robots, g.activeGoal)
+
 	// ~ 1.8 mil states before compute
 	return g
 	/*
@@ -426,7 +428,7 @@ func (g *game) clone() game {
 		robots[r.id] = &robot{id: r.id, position: r.position}
 	}
 
-	goals := make([]goal, len(g.goals))
+	goals := make([]Goal, len(g.goals))
 	copy(goals, g.goals)
 
 	ng := game{
