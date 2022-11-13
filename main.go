@@ -272,7 +272,42 @@ func (g *game) state() uint32 {
 }
 
 func main() {
-	parseBoard()
+	g := parseBoard(fullBoard)
+
+	start := time.Now()
+	var wg sync.WaitGroup
+	results := make(chan string)
+	rand.Seed(time.Now().UnixNano())
+	for idx, ig := range g.goals {
+		wg.Add(1)
+		go func(target Goal, index int) {
+			defer wg.Done()
+			cpy := g.clone()
+			cpy.activeGoal = target
+			//		cpy.activeGoal.position = uint32(rand.Intn(255))
+			cpy.activeRobot = cpy.robots[target.id]
+			cpy.optimalMoves = cpy.preCompute(cpy.activeGoal.position)
+			res := cpy.solve(20)
+			results <- fmt.Sprintf("Puzzle: %d -> %s", index, res)
+
+		}(ig, idx)
+	}
+
+	done := make(chan struct{})
+	go func() {
+		for msg := range results {
+			fmt.Println(msg)
+		}
+		close(done)
+	}()
+
+	wg.Wait()
+	stop := time.Since(start)
+	close(results)
+	<-done
+	fmt.Printf("Total Time: %s \n", stop)
+
+	printBoard(g.board, g.size, g.robots, g.activeGoal)
 
 }
 
@@ -284,24 +319,25 @@ func (g *game) setRobot(id byte, pos uint32) {
 	}
 }
 
-func parseBoard() game {
-	input := `•---•---•---•
-| R     | B |
-•   •   •   •
-|     r     |
-•   •   •   •
-|         G |
-•---•---•---•`
+func parseBoard(input string) game {
+	/*(
+		input := `•---•---•---•
+	| R     | B |
+	•   •   •   •
+	|     r     |
+	•   •   •   •
+	|         G |
+	•---•---•---•`
 
-	input = fullBoard
-
-	fmt.Println("----------------------------")
+		input = fullBoard
+	*/
 
 	// I can do smarter parsing without the edge cases by always working in 3 part rows
 	// just only advance the row pointer by 2
 	// read everything into buffer initially
 
 	// TODO: trim trailing newlines when input comes from files
+	input = strings.TrimSpace(input)
 	lines := strings.Split(input, "\n")
 	size := len(strings.Split(lines[0], "---")) - 1
 
@@ -354,68 +390,8 @@ func parseBoard() game {
 		cache:       make(map[uint32]int),
 	}
 
-	/*
-		for _, goal := range g.goals {
-				g.moves = make([]move, 0)
-				g.cache = make(map[uint32]int)
-				g.visits = 0
-
-				g.activeRobot = g.robots[goal.id]
-				g.activeGoal = goal
-			cpy := g.clone()
-			cpy.activeGoal = goal
-			cpy.activeRobot = cpy.robots[goal.id]
-			cpy.optimalMoves = cpy.preCompute(cpy.activeGoal.position)
-			cpy.solve(15)
-		}
-	*/
-
-	start := time.Now()
-	var wg sync.WaitGroup
-	results := make(chan string)
-	rand.Seed(time.Now().UnixNano())
-	for idx, ig := range g.goals {
-		wg.Add(1)
-		go func(target Goal, index int) {
-			defer wg.Done()
-			cpy := g.clone()
-			cpy.activeGoal = target
-			//		cpy.activeGoal.position = uint32(rand.Intn(255))
-			cpy.activeRobot = cpy.robots[target.id]
-			cpy.optimalMoves = cpy.preCompute(cpy.activeGoal.position)
-			res := cpy.solve(20)
-			results <- fmt.Sprintf("Puzzle: %d -> %s", index, res)
-
-		}(ig, idx)
-	}
-
-	done := make(chan struct{})
-	go func() {
-		for msg := range results {
-			fmt.Println(msg)
-		}
-		close(done)
-	}()
-
-	wg.Wait()
-	stop := time.Since(start)
-	close(results)
-	<-done
-	fmt.Printf("Total Time: %s \n", stop)
-
-	printBoard(g.board, g.size, g.robots, g.activeGoal)
-
 	// ~ 1.8 mil states before compute
 	return g
-	/*
-		//fmt.Println("robits: %+v\n", g.robots)
-		for _, r := range g.robots {
-			fmt.Printf("robot: %+v\n", r)
-		}
-		fmt.Printf("goal: %+v\n", g.activeGoal)
-		fmt.Printf("robit: %+v\n", g.activeRobot)
-		g.solve(6)
-	*/
 
 }
 
