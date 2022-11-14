@@ -36,5 +36,13 @@ func TestValidate(t *testing.T) {
 	}
 
 	fmt.Println(validate(&g, g.board, moves, g.activeGoal))
+}
 
+func TestRandomGame(t *testing.T) {
+	g := randomGame()
+	printBoard(g.board, g.size, g.robots, g.activeGoal)
+
+	g.optimalMoves = g.preCompute(g.activeGoal.position)
+	res := g.solve(15)
+	fmt.Println(res)
 }
