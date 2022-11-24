@@ -2,10 +2,7 @@ package main
 
 import (
 	"fmt"
-	"math/rand"
 	"strings"
-	"sync"
-	"time"
 )
 
 type direction uint8
@@ -222,7 +219,6 @@ func (g *game) solve(maxDepth int) string {
 			return strings.Join(moveStrs, "-")
 		}
 	}
-	fmt.Println(g.visits)
 	return "no solution in move limit"
 }
 
@@ -272,42 +268,53 @@ func (g *game) state() uint32 {
 }
 
 func main() {
-	g := parseBoard(fullBoard)
 
-	start := time.Now()
-	var wg sync.WaitGroup
-	results := make(chan string)
-	rand.Seed(time.Now().UnixNano())
-	for idx, ig := range g.goals {
-		wg.Add(1)
-		go func(target Goal, index int) {
-			defer wg.Done()
-			cpy := g.clone()
-			cpy.activeGoal = target
-			//		cpy.activeGoal.position = uint32(rand.Intn(255))
-			cpy.activeRobot = cpy.robots[target.id]
-			cpy.optimalMoves = cpy.preCompute(cpy.activeGoal.position)
-			res := cpy.solve(20)
-			results <- fmt.Sprintf("Puzzle: %d -> %s", index, res)
+	rg := randomGame()
+	out := printBoard(rg.board, rg.size, rg.robots, rg.activeGoal)
+	fmt.Println(out)
+	fmt.Println(len(out))
+	return
 
-		}(ig, idx)
-	}
+	s := &server{}
+	s.run()
+	/*
+		g := parseBoard(fullBoard)
 
-	done := make(chan struct{})
-	go func() {
-		for msg := range results {
-			fmt.Println(msg)
+		start := time.Now()
+		var wg sync.WaitGroup
+		results := make(chan string)
+		rand.Seed(time.Now().UnixNano())
+		for idx, ig := range g.goals {
+			wg.Add(1)
+			go func(target Goal, index int) {
+				defer wg.Done()
+				cpy := g.clone()
+				cpy.activeGoal = target
+				//		cpy.activeGoal.position = uint32(rand.Intn(255))
+				cpy.activeRobot = cpy.robots[target.id]
+				cpy.optimalMoves = cpy.preCompute(cpy.activeGoal.position)
+				res := cpy.solve(20)
+				results <- fmt.Sprintf("Puzzle: %d -> %s", index, res)
+
+			}(ig, idx)
 		}
-		close(done)
-	}()
 
-	wg.Wait()
-	stop := time.Since(start)
-	close(results)
-	<-done
-	fmt.Printf("Total Time: %s \n", stop)
+		done := make(chan struct{})
+		go func() {
+			for msg := range results {
+				fmt.Println(msg)
+			}
+			close(done)
+		}()
 
-	printBoard(g.board, g.size, g.robots, g.activeGoal)
+		wg.Wait()
+		stop := time.Since(start)
+		close(results)
+		<-done
+		fmt.Printf("Total Time: %s \n", stop)
+
+		printBoard(g.board, g.size, g.robots, g.activeGoal)
+	*/
 
 }
 

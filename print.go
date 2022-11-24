@@ -1,11 +1,10 @@
 package main
 
 import (
-	"fmt"
 	"strings"
 )
 
-func printBoard(board []square, size int, robots map[byte]*robot, goal Goal) {
+func printBoard(board []square, size int, robots map[byte]*robot, goal Goal) string {
 	var b strings.Builder
 
 	robotPositions := make(map[uint32]byte)
@@ -55,5 +54,6 @@ func printBoard(board []square, size int, robots map[byte]*robot, goal Goal) {
 		b.WriteRune('•')
 	}
 
-	fmt.Println(b.String())
+	//fmt.Println(b.String())
+	return b.String()
 }
