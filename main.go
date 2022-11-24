@@ -269,11 +269,13 @@ func (g *game) state() uint32 {
 
 func main() {
 
-	rg := randomGame()
-	out := printBoard(rg.board, rg.size, rg.robots, rg.activeGoal)
-	fmt.Println(out)
-	fmt.Println(len(out))
-	return
+	/*
+		rg := randomGame()
+		out := printBoard(rg.board, rg.size, rg.robots, rg.activeGoal)
+		fmt.Println(out)
+		fmt.Println(len(out))
+		return
+	*/
 
 	s := &server{}
 	s.run()

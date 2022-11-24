@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"sync"
+	"time"
 
 	"github.com/bwmarrin/discordgo"
 )
@@ -15,6 +16,7 @@ const gameBuffer = 5
 type server struct {
 	categorizer *categorizer
 	isSearching bool
+	instances   map[string]*discordInstance
 }
 
 type discordInstance struct {
@@ -24,6 +26,7 @@ type discordInstance struct {
 }
 
 func (s *server) run() {
+	s.instances = make(map[string]*discordInstance)
 
 	discordToken := os.Getenv("RICOCHET_DISCORD_TOKEN")
 	if discordToken == "" {
@@ -38,29 +41,39 @@ func (s *server) run() {
 
 	// Handler that will register all known slash commands whenever the bot is invited
 	// to a new guild or restarted.
-	dg.AddHandler(func(s *discordgo.Session, gc *discordgo.GuildCreate) {
+	dg.AddHandler(func(dg *discordgo.Session, gc *discordgo.GuildCreate) {
 		log.Println("Invited to guild:", gc.Name)
+
+		// look for a ricochet channel
+		channel, err := findChannel(dg, gc.ID)
+		if err != nil {
+			log.Printf("unable to find channels: %v", err)
+			return
+		}
+
+		// TODO: Create if not exists
+
+		// local dev reset on start
 		/*
-			if err := registerCommands(dg, gc.Guild.ID); err != nil {
-				log.Printf("register commands failed for guild: %s, %v", gc.Name, err)
+			channelID := "1044057773991800882"
+			oldMessages, err := dg.ChannelMessages(channelID, 100, "", "", "")
+			if err != nil {
+				log.Printf("Unable to delete existing messages: %v\n", err)
+			}
+			for _, msg := range oldMessages {
+				if err := dg.ChannelMessageDelete(channelID, msg.ID); err != nil {
+					log.Printf("Unable to delete message: %v\n", err)
+				}
 			}
 		*/
 
-		// local dev reset on start
-		channelID := "1044057773991800882"
-		oldMessages, err := dg.ChannelMessages(channelID, 100, "", "", "")
-		if err != nil {
-			log.Printf("Unable to delete existing messages: %v\n", err)
-		}
-		for _, msg := range oldMessages {
-			if err := dg.ChannelMessageDelete(channelID, msg.ID); err != nil {
-				log.Printf("Unable to delete message: %v\n", err)
-			}
-		}
-
 		if err := registerCommands(dg, gc.Guild.ID); err != nil {
 			log.Fatalf("Unable to update commands: %v\n", err)
+		}
 
+		s.instances[gc.Guild.ID] = &discordInstance{
+			serverID:  gc.Guild.ID,
+			channelID: channel.ID,
 		}
 	})
 
@@ -73,9 +86,14 @@ func (s *server) run() {
 		case discordgo.InteractionApplicationCommand:
 			switch i.ApplicationCommandData().Name {
 			case "puzzle":
-				err := handlePuzzle(dg, i)
+				err := s.handlePuzzle(dg, i)
 				if err != nil {
 					log.Printf("puzzle handler: %v", err)
+				}
+			case "solve":
+				err := s.handleSolve(dg, i)
+				if err != nil {
+					log.Printf("solve handler: %v", err)
 				}
 			default:
 				log.Println("Unknown Command:", i.ApplicationCommandData().Name)
@@ -97,10 +115,11 @@ func (s *server) run() {
 	}
 	s.categorizer = &cat
 
-	//lookForSolutions(s)
+	lookForSolutions(s)
 
 	fmt.Println("infinite loop")
 	for {
+		time.Sleep(10 * time.Second)
 
 	}
 
