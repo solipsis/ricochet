@@ -22,16 +22,22 @@ func weightSolution(solution string) int {
 // medium 7 12
 // hard 12+
 
+var possibleRobots = []byte{'R', 'G', 'B', 'Y'}
+
 // load a board
 // select random goal (no reason I can't randomize target robot?)
 // select random starting locations
 
 func randomGame() *game {
-	g := parseBoard(fullBoard)
+	//g := parseBoard(fullBoard)
+	g := parseBoard(randomBoard())
 	// select random goal
 	rand.Seed(time.Now().UnixNano())
 	goalIdx := rand.Intn(len(g.goals))
+
+	// pick a goal location and a random color for that goal
 	g.activeGoal = g.goals[goalIdx]
+	g.activeGoal.id = possibleRobots[rand.Intn(4)]
 	g.activeRobot = g.robots[g.activeGoal.id]
 
 	// randomly place robots
