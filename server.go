@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"strings"
 	"sync"
 	"time"
 
@@ -56,6 +55,13 @@ func (s *server) run() {
 		}
 
 		// TODO: Create if not exists
+		if channel == nil {
+			channel, err = dg.GuildChannelCreate(gc.ID, "ricochet", discordgo.ChannelTypeGuildText)
+			if err != nil {
+				log.Printf("unable to create ricochet channel")
+				return
+			}
+		}
 
 		// local dev reset on start
 		/*
@@ -80,12 +86,12 @@ func (s *server) run() {
 			channelID: channel.ID,
 		}
 
-		var sb strings.Builder
-		sb.WriteString("**Ricochet-Robotbot** v0.0.1\n")
-		sb.WriteString("\ntype **/help** to get started\n")
-		if _, err := dg.ChannelMessageSend(channel.ID, sb.String()); err != nil {
-			log.Printf("unable to post intro message: %v", err)
-		}
+		//		var sb strings.Builder
+		//		sb.WriteString("**Ricochet-Robotbot** v0.0.1\n")
+		//		sb.WriteString("\ntype **/help** to get started\n")
+		//		if _, err := dg.ChannelMessageSend(channel.ID, sb.String()); err != nil {
+		//			log.Printf("unable to post intro message: %v", err)
+		//		}
 
 	})
 

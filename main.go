@@ -25,6 +25,7 @@ type game struct {
 	optimalMoves []uint32
 
 	lenOptimalSolution int
+	difficultyName     string
 }
 
 const (

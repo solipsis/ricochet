@@ -185,7 +185,25 @@ func (s *server) handlePuzzle(dg *discordgo.Session, i *discordgo.InteractionCre
 		return nil
 	}
 
-	g := <-s.categorizer.easy
+	// grab a game of the proper difficulty
+	var g *game
+	if len(i.Interaction.ApplicationCommandData().Options) == 0 {
+		g = <-s.categorizer.medium
+		g.difficultyName = "medium"
+	} else if i.Interaction.ApplicationCommandData().Options[0].Value == "easy" {
+		g = <-s.categorizer.easy
+		g.difficultyName = "easy"
+	} else if i.Interaction.ApplicationCommandData().Options[0].Value == "medium" {
+		g = <-s.categorizer.medium
+		g.difficultyName = "medium"
+	} else if i.Interaction.ApplicationCommandData().Options[0].Value == "hard" {
+		g = <-s.categorizer.hard
+		g.difficultyName = "hard"
+	} else {
+		g = <-s.categorizer.medium
+		g.difficultyName = "medium"
+	}
+
 	instance.activeGame = g
 	instance.submittedSolutions = make(map[string][]move)
 
@@ -238,7 +256,7 @@ func (s *server) handlePuzzle(dg *discordgo.Session, i *discordgo.InteractionCre
 func puzzleContent(num int, g *game) string {
 
 	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("**Puzzle #%d** -- Easy\n", num))
+	sb.WriteString(fmt.Sprintf("**Puzzle #%d** -- %s\n", num, g.difficultyName))
 
 	var color string
 	switch g.activeGoal.id {
@@ -262,6 +280,27 @@ var slashCommands = []*discordgo.ApplicationCommand{
 	{
 		Name:        "puzzle",
 		Description: "generate a new puzzle",
+		Options: []*discordgo.ApplicationCommandOption{
+			{
+				Name:        "difficulty",
+				Description: "easy, medium, or hard",
+				Type:        discordgo.ApplicationCommandOptionString,
+				Choices: []*discordgo.ApplicationCommandOptionChoice{
+					{
+						Name:  "easy",
+						Value: "easy",
+					},
+					{
+						Name:  "medium",
+						Value: "medium",
+					},
+					{
+						Name:  "hard",
+						Value: "hard",
+					},
+				},
+			},
+		},
 	},
 	{
 		Name:        "solve",

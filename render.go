@@ -64,13 +64,15 @@ func render(g *game) (image.Image, error) {
 	//draw.CatmullRom.Scale(upscaled, upscaled.Bounds(), dst, dst.Bounds(), draw.Over, nil)
 	draw.NearestNeighbor.Scale(upscaled, upscaled.Bounds(), dst, dst.Bounds(), draw.Over, nil)
 
-	out, err := os.Create("out.png")
-	if err != nil {
-		log.Fatalf("creating output: %v", err)
-	}
-	if err := png.Encode(out, upscaled); err != nil {
-		log.Fatalf("Encoding: %v", err)
-	}
+	/*
+		out, err := os.Create("out.png")
+		if err != nil {
+			log.Fatalf("creating output: %v", err)
+		}
+		if err := png.Encode(out, upscaled); err != nil {
+			log.Fatalf("Encoding: %v", err)
+		}
+	*/
 
 	return upscaled, nil
 }
