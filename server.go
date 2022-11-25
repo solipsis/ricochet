@@ -22,6 +22,7 @@ type server struct {
 type discordInstance struct {
 	serverID   string
 	channelID  string
+	puzzleIdx  int
 	activeGame *game
 }
 
@@ -94,6 +95,11 @@ func (s *server) run() {
 				err := s.handleSolve(dg, i)
 				if err != nil {
 					log.Printf("solve handler: %v", err)
+				}
+			case "help":
+				err := s.handleHelp(dg, i)
+				if err != nil {
+					log.Printf("help handler: %v", err)
 				}
 			default:
 				log.Println("Unknown Command:", i.ApplicationCommandData().Name)

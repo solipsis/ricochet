@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"image/png"
 	"log"
+	"strings"
 
 	"github.com/bwmarrin/discordgo"
 )
@@ -29,6 +30,41 @@ func findChannel(dg *discordgo.Session, guildID string) (*discordgo.Channel, err
 }
 
 func (s *server) handleSolve(dg *discordgo.Session, i *discordgo.InteractionCreate) error {
+	return nil
+}
+
+func (s *server) handleHelp(dg *discordgo.Session, i *discordgo.InteractionCreate) error {
+	// ack
+	err := dg.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
+		Data: &discordgo.InteractionResponseData{
+			Flags: 1 << 6, // ephemeral
+		},
+	})
+
+	// respond
+	var sb strings.Builder
+	sb.WriteString("**Commands**:\n")
+	sb.WriteString("  **/puzzle**: Generate a new puzzle to solve\n")
+	sb.WriteString("  **/solve**: Submit a solution to the current puzzle\n")
+	sb.WriteString("\n**How to Play**:\n")
+	sb.WriteString("1. robots may only move Up, Down, Left, or Right\n")
+	sb.WriteString("2. robots move in a straight line until hitting a wall or another robot\n")
+	sb.WriteString("3. you can move robots in any order and as many times as you like\n")
+	sb.WriteString("\nSubmit your answer like \"**/solve RU-GD-BL-YR**\"\n")
+	sb.WriteString("R=red, G=green, B=blue, Y=yellow\n")
+	sb.WriteString("U=up, D=down, L=left, R=right\n")
+
+	content := sb.String()
+	_, err = dg.InteractionResponseEdit(i.Interaction,
+		&discordgo.WebhookEdit{
+			Content: &content,
+		},
+	)
+	if err != nil {
+		log.Printf("sending help response: %v\n", err)
+		return fmt.Errorf("sending help response: %v", err)
+	}
 	return nil
 }
 
@@ -64,8 +100,8 @@ func (s *server) handlePuzzle(dg *discordgo.Session, i *discordgo.InteractionCre
 	if err := png.Encode(&buf, img); err != nil {
 		return fmt.Errorf("encoding board image: %v", err)
 	}
+	instance.puzzleIdx += 1
 
-	//	content := printBoard(g.board, g.size, g.robots, g.activeGoal)
 	file := &discordgo.File{
 		Name:        "board.png",
 		ContentType: "image/png",
@@ -73,7 +109,7 @@ func (s *server) handlePuzzle(dg *discordgo.Session, i *discordgo.InteractionCre
 	}
 
 	dg.ChannelMessageSendComplex(instance.channelID, &discordgo.MessageSend{
-		Content: "Puzzle #X",
+		Content: puzzleContent(instance.puzzleIdx, instance.activeGame),
 		Files:   []*discordgo.File{file},
 	})
 
@@ -81,7 +117,6 @@ func (s *server) handlePuzzle(dg *discordgo.Session, i *discordgo.InteractionCre
 	_, err = dg.InteractionResponseEdit(i.Interaction,
 		&discordgo.WebhookEdit{
 			Content: &content,
-			//			Components: &[]discordgo.MessageComponent{},
 		},
 	)
 	if err != nil {
@@ -89,7 +124,34 @@ func (s *server) handlePuzzle(dg *discordgo.Session, i *discordgo.InteractionCre
 		return fmt.Errorf("Editing response with puzzle: %v", err)
 	}
 
+	if !s.isSearching {
+		go lookForSolutions(s)
+	}
+
 	return nil
+}
+
+func puzzleContent(num int, g *game) string {
+
+	var sb strings.Builder
+	sb.WriteString(fmt.Sprintf("**Puzzle #%d**\n", num))
+
+	var color string
+	switch g.activeGoal.id {
+	case 'R':
+		color = "Red"
+	case 'B':
+		color = "Blue"
+	case 'Y':
+		color = "Yellow"
+	case 'G':
+		color = "Green"
+	}
+	colorEmoji := fmt.Sprintf(":%s_square:", strings.ToLower(color))
+
+	sb.WriteString(fmt.Sprintf("Get the %s robot to the goal %s", color, colorEmoji))
+
+	return sb.String()
 }
 
 var slashCommands = []*discordgo.ApplicationCommand{
@@ -100,6 +162,10 @@ var slashCommands = []*discordgo.ApplicationCommand{
 	{
 		Name:        "submit",
 		Description: "submit an answer to the current puzzle",
+	},
+	{
+		Name:        "help",
+		Description: "how to interact with ricochet-robotbot",
 	},
 }
 
