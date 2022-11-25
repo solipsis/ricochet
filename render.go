@@ -92,6 +92,8 @@ func pickTile(sq square) image.Image {
 		fname = "down-right3.png"
 	case s&LEFT != 0 && s&RIGHT != 0:
 		fname = "left-right3.png"
+	case s&UP != 0 && s&DOWN != 0:
+		fname = "up-down3.png"
 	case s&UP != 0:
 		fname = "up3.png"
 	case s&DOWN != 0:
