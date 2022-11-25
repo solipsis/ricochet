@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -24,6 +25,8 @@ type discordInstance struct {
 	channelID  string
 	puzzleIdx  int
 	activeGame *game
+
+	submittedSolutions map[string][]move
 }
 
 func (s *server) run() {
@@ -76,6 +79,14 @@ func (s *server) run() {
 			serverID:  gc.Guild.ID,
 			channelID: channel.ID,
 		}
+
+		var sb strings.Builder
+		sb.WriteString("**Ricochet-Robotbot** v0.0.1\n")
+		sb.WriteString("\ntype **/help** to get started\n")
+		if _, err := dg.ChannelMessageSend(channel.ID, sb.String()); err != nil {
+			log.Printf("unable to post intro message: %v", err)
+		}
+
 	})
 
 	// top level handler for slash commands, user commands, and continued interactions
@@ -150,6 +161,7 @@ func lookForSolutions(s *server) {
 				res := rg.solve(18)
 				moves, _ := parseMoves(res)
 				numMoves := len(moves)
+				rg.lenOptimalSolution = numMoves
 
 				// Add solution to proper buffer. Discard if that buffer already has enough solutions
 				// of that length

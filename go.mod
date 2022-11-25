@@ -4,6 +4,7 @@ go 1.19
 
 require (
 	github.com/bwmarrin/discordgo v0.26.1
+	github.com/davecgh/go-spew v1.1.1
 	golang.org/x/image v0.1.0
 )
 

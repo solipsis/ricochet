@@ -23,6 +23,8 @@ type game struct {
 	visits       int
 	cache        map[uint32]int
 	optimalMoves []uint32
+
+	lenOptimalSolution int
 }
 
 const (

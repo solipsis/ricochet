@@ -30,6 +30,92 @@ func findChannel(dg *discordgo.Session, guildID string) (*discordgo.Channel, err
 }
 
 func (s *server) handleSolve(dg *discordgo.Session, i *discordgo.InteractionCreate) error {
+	err := dg.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
+		Data: &discordgo.InteractionResponseData{
+			Flags: 1 << 6, // ephemeral
+		},
+	})
+	if err != nil {
+		return fmt.Errorf("responding solve ack: %v", err)
+	}
+
+	// parse user moves
+	if len(i.Interaction.ApplicationCommandData().Options) == 0 {
+		return fmt.Errorf("No moves provided to /solve: %v", i)
+	}
+	moveStr := i.Interaction.ApplicationCommandData().Options[0].Value
+	moves, err := parseMoves(moveStr.(string))
+	if err != nil {
+		content := fmt.Sprintf("'%s' is not a valid move format. Please see **/help**", moveStr)
+		_, err = dg.InteractionResponseEdit(i.Interaction,
+			&discordgo.WebhookEdit{
+				Content: &content,
+			},
+		)
+		if err != nil {
+			return fmt.Errorf("Failed to respond with invalid moves: %v", err)
+		}
+		return nil
+	}
+
+	// look up instance
+	instance := s.instances[i.GuildID]
+
+	if instance.activeGame == nil {
+		content := fmt.Sprintf("There is no active puzzle. Please use **/puzzle** to create one")
+		_, err = dg.InteractionResponseEdit(i.Interaction,
+			&discordgo.WebhookEdit{
+				Content: &content,
+			},
+		)
+		return nil
+	}
+
+	// validate solution
+	success := validate(instance.activeGame, instance.activeGame.board, moves, instance.activeGame.activeGoal)
+	var content string
+	if success {
+
+		content = fmt.Sprintf(":white_check_mark: Puzzle Solved: %s", moveStr)
+		_, err = dg.InteractionResponseEdit(i.Interaction,
+			&discordgo.WebhookEdit{
+				Content: &content,
+			},
+		)
+
+		if i.Interaction.Member != nil {
+			currentBest := len(instance.submittedSolutions[i.Interaction.Member.User.ID])
+			if currentBest == 0 {
+				currentBest = 999
+			}
+			if len(moves) < currentBest {
+				instance.submittedSolutions[i.Interaction.Member.User.ID] = moves
+			}
+
+			var content string
+			if len(moves) == instance.activeGame.lenOptimalSolution {
+				content = fmt.Sprintf("<@%s> solved with an :tada:**optimal**:tada: %d move solution", i.Interaction.Member.User.ID, len(moves))
+			} else {
+				content = fmt.Sprintf("<@%s> solved with a %d move solution", i.Interaction.Member.User.ID, len(moves))
+			}
+			dg.ChannelMessageSend(i.Interaction.ChannelID, content)
+		}
+
+	} else {
+		content = fmt.Sprintf(":x: %s is not a valid solution to this puzzle", moveStr)
+		_, err = dg.InteractionResponseEdit(i.Interaction,
+			&discordgo.WebhookEdit{
+				Content: &content,
+			},
+		)
+	}
+	if err != nil {
+		log.Printf("unable to print puzzle: %v\n", err)
+		return fmt.Errorf("Editing response with puzzle: %v", err)
+	}
+
+	//spew.Dump(i.ApplicationCommandData())
 	return nil
 }
 
@@ -41,6 +127,10 @@ func (s *server) handleHelp(dg *discordgo.Session, i *discordgo.InteractionCreat
 			Flags: 1 << 6, // ephemeral
 		},
 	})
+	if err != nil {
+		log.Printf("responding help ack: %v\n", err)
+		return fmt.Errorf("respoding help ack: %v", err)
+	}
 
 	// respond
 	var sb strings.Builder
@@ -84,12 +174,26 @@ func (s *server) handlePuzzle(dg *discordgo.Session, i *discordgo.InteractionCre
 	// look up instance
 	instance := s.instances[i.GuildID]
 
-	/*
-		g := randomGame()
-		g.optimalMoves = g.preCompute(g.activeGoal.position)
-	*/
-	g := <-s.categorizer.medium
+	// haven't solved current puzzle
+	if instance.activeGame != nil && len(instance.submittedSolutions) == 0 {
+		content := "Current puzzle must be solved before requesting a new one"
+		dg.InteractionResponseEdit(i.Interaction,
+			&discordgo.WebhookEdit{
+				Content: &content,
+			},
+		)
+		return nil
+	}
+
+	g := <-s.categorizer.easy
 	instance.activeGame = g
+	instance.submittedSolutions = make(map[string][]move)
+
+	var moveStrs []string
+	for _, m := range g.moves {
+		moveStrs = append(moveStrs, m.String())
+	}
+	fmt.Println("Optimal:", strings.Join(moveStrs, "-"))
 
 	img, err := render(g)
 	if err != nil {
@@ -134,7 +238,7 @@ func (s *server) handlePuzzle(dg *discordgo.Session, i *discordgo.InteractionCre
 func puzzleContent(num int, g *game) string {
 
 	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("**Puzzle #%d**\n", num))
+	sb.WriteString(fmt.Sprintf("**Puzzle #%d** -- Easy\n", num))
 
 	var color string
 	switch g.activeGoal.id {
@@ -160,8 +264,16 @@ var slashCommands = []*discordgo.ApplicationCommand{
 		Description: "generate a new puzzle",
 	},
 	{
-		Name:        "submit",
+		Name:        "solve",
 		Description: "submit an answer to the current puzzle",
+		Options: []*discordgo.ApplicationCommandOption{
+			{
+				Name:        "moves",
+				Description: "List of moves i.e. RU-GD-BR-YL",
+				Type:        discordgo.ApplicationCommandOptionString,
+				Required:    true,
+			},
+		},
 	},
 	{
 		Name:        "help",
