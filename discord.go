@@ -10,6 +10,8 @@ import (
 	"github.com/bwmarrin/discordgo"
 )
 
+const ArenaServerID = "810570434453438475" // my discord
+
 func findChannel(dg *discordgo.Session, guildID string) (*discordgo.Channel, error) {
 	// check if channel already exists
 	channels, err := dg.GuildChannels(guildID)
@@ -85,21 +87,28 @@ func (s *server) handleSolve(dg *discordgo.Session, i *discordgo.InteractionCrea
 		)
 
 		if i.Interaction.Member != nil {
-			currentBest := len(instance.submittedSolutions[i.Interaction.Member.User.ID])
-			if currentBest == 0 {
-				currentBest = 999
-			}
-			if len(moves) < currentBest {
-				instance.submittedSolutions[i.Interaction.Member.User.ID] = moves
-			}
 
-			var content string
-			if len(moves) == instance.activeGame.lenOptimalSolution {
-				content = fmt.Sprintf("<@%s> solved with an :tada:**optimal**:tada: %d move solution", i.Interaction.Member.User.ID, len(moves))
+			// extra stuff if on arena server
+			if i.Interaction.GuildID == ArenaServerID {
+				arenaSolution(dg, i.Interaction, instance, moves)
 			} else {
-				content = fmt.Sprintf("<@%s> solved with a %d move solution", i.Interaction.Member.User.ID, len(moves))
+
+				bestForUser := len(instance.solutionTracker.get(i.Interaction.Member.User.ID))
+				if bestForUser == 0 {
+					bestForUser = 999
+				}
+				if len(moves) < bestForUser {
+					instance.solutionTracker.set(i.Interaction.Member.User.ID, moves)
+				}
+
+				var content string
+				if len(moves) == instance.activeGame.lenOptimalSolution {
+					content = fmt.Sprintf("<@%s> solved with an :tada:**optimal**:tada: %d move solution", i.Interaction.Member.User.ID, len(moves))
+				} else {
+					content = fmt.Sprintf("<@%s> solved with a %d move solution", i.Interaction.Member.User.ID, len(moves))
+				}
+				dg.ChannelMessageSend(i.Interaction.ChannelID, content)
 			}
-			dg.ChannelMessageSend(i.Interaction.ChannelID, content)
 		}
 
 	} else {
@@ -175,7 +184,7 @@ func (s *server) handlePuzzle(dg *discordgo.Session, i *discordgo.InteractionCre
 	instance := s.instances[i.GuildID]
 
 	// haven't solved current puzzle
-	if instance.activeGame != nil && len(instance.submittedSolutions) == 0 {
+	if instance.activeGame != nil && instance.solutionTracker.numSubmitted() == 0 {
 		content := "Current puzzle must be solved before requesting a new one"
 		dg.InteractionResponseEdit(i.Interaction,
 			&discordgo.WebhookEdit{
@@ -205,7 +214,7 @@ func (s *server) handlePuzzle(dg *discordgo.Session, i *discordgo.InteractionCre
 	}
 
 	instance.activeGame = g
-	instance.submittedSolutions = make(map[string][]move)
+	instance.solutionTracker = &solutionTracker{}
 
 	var moveStrs []string
 	for _, m := range g.moves {

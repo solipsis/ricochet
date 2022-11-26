@@ -25,7 +25,50 @@ type discordInstance struct {
 	puzzleIdx  int
 	activeGame *game
 
+	solutionTracker *solutionTracker
+	//submittedSolutions map[string][]move
+}
+
+type solutionTracker struct {
+	lock               sync.Mutex
 	submittedSolutions map[string][]move
+}
+
+func (st *solutionTracker) set(key string, moves []move) {
+	st.lock.Lock()
+	defer st.lock.Unlock()
+	if st.submittedSolutions == nil {
+		st.submittedSolutions = make(map[string][]move)
+	}
+	st.submittedSolutions[key] = moves
+}
+
+func (st *solutionTracker) get(key string) []move {
+	st.lock.Lock()
+	defer st.lock.Unlock()
+	return st.submittedSolutions[key]
+}
+
+func (st *solutionTracker) currentBest() []move {
+	st.lock.Lock()
+	defer st.lock.Unlock()
+
+	bestNum := 999
+	var bestMoves []move
+	for _, v := range st.submittedSolutions {
+		if len(v) < bestNum {
+			bestNum = len(v)
+			bestMoves = v
+		}
+	}
+
+	return bestMoves
+}
+
+func (st *solutionTracker) numSubmitted() int {
+	st.lock.Lock()
+	defer st.lock.Unlock()
+	return len(st.submittedSolutions)
 }
 
 func (s *server) run() {
