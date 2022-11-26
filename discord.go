@@ -11,6 +11,7 @@ import (
 )
 
 const ArenaServerID = "810570434453438475" // my discord
+//const ArenaServerID = "8105704344534384751" // my discord
 
 func findChannel(dg *discordgo.Session, guildID string) (*discordgo.Channel, error) {
 	// check if channel already exists
@@ -90,7 +91,10 @@ func (s *server) handleSolve(dg *discordgo.Session, i *discordgo.InteractionCrea
 
 			// extra stuff if on arena server
 			if i.Interaction.GuildID == ArenaServerID {
-				arenaSolution(dg, i.Interaction, instance, moves)
+				if err := arenaSolution(dg, i.Interaction, instance, s.db, moves); err != nil {
+					log.Printf("processing arena solution: %v", err)
+					return fmt.Errorf("processing arena solution: %v", err)
+				}
 			} else {
 
 				bestForUser := len(instance.solutionTracker.get(i.Interaction.Member.User.ID))

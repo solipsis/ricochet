@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"os"
@@ -8,6 +9,7 @@ import (
 	"time"
 
 	"github.com/bwmarrin/discordgo"
+	"github.com/jackc/pgx/v4/pgxpool"
 )
 
 const DiscordApplicationID = "1044049636106706974"
@@ -17,6 +19,7 @@ type server struct {
 	categorizer *categorizer
 	isSearching bool
 	instances   map[string]*discordInstance
+	db          *pgxpool.Pool
 }
 
 type discordInstance struct {
@@ -83,7 +86,15 @@ func (s *server) run() {
 	if err != nil {
 		log.Fatalf("failed to authenticate with discord: %v", err)
 	}
-	fmt.Println(dg)
+
+	// connect to db
+	dbURL := os.Getenv("DATABASE_URL")
+	conn, err := pgxpool.Connect(context.Background(), dbURL)
+	if err != nil {
+		log.Fatalf("unable to connect to db: %v", err)
+	}
+	defer conn.Close()
+	s.db = conn
 
 	// Handler that will register all known slash commands whenever the bot is invited
 	// to a new guild or restarted.
@@ -121,7 +132,8 @@ func (s *server) run() {
 		*/
 
 		if err := registerCommands(dg, gc.Guild.ID); err != nil {
-			log.Fatalf("Unable to update commands: %v\n", err)
+			log.Printf("Unable to update commands: %v\n", err)
+			return
 		}
 
 		s.instances[gc.Guild.ID] = &discordInstance{
