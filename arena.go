@@ -95,7 +95,7 @@ func arenaSolution(dg *discordgo.Session, i *discordgo.Interaction, instance *di
 		content = fmt.Sprintf("<@%s> solved with a %d move solution", i.Member.User.ID, len(moves))
 	}
 	if tokensEarned > 0 {
-		content = fmt.Sprintf("%s +%d :arena:", content, tokensEarned)
+		content = fmt.Sprintf("%s +%d <:arena:917512583160930364>", content, tokensEarned)
 	}
 	if _, err := dg.ChannelMessageSend(i.ChannelID, content); err != nil {
 		log.Printf("Sending arena solution message: %v", err)

@@ -336,10 +336,19 @@ func (s *server) handlePuzzle(dg *discordgo.Session, i *discordgo.InteractionCre
 		Reader:      &buf,
 	}
 
-	dg.ChannelMessageSendComplex(instance.channelID, &discordgo.MessageSend{
-		Content: puzzleContent(instance.puzzleIdx, i.Interaction.Member.User.Username, instance.activeGame),
+	_, err = dg.ChannelMessageSendComplex(instance.channelID, &discordgo.MessageSend{
+		Content: puzzleContent(instance.puzzleIdx, i.Interaction.Member, instance.activeGame),
 		Files:   []*discordgo.File{file},
 	})
+	if err != nil {
+		content := ":x: Unable to create puzzle, please try again later"
+		dg.InteractionResponseEdit(i.Interaction,
+			&discordgo.WebhookEdit{
+				Content: &content,
+			},
+		)
+		return fmt.Errorf("uploading puzzle to discord: %v", err)
+	}
 
 	content := "Puzzle created successfully"
 	_, err = dg.InteractionResponseEdit(i.Interaction,
@@ -348,7 +357,7 @@ func (s *server) handlePuzzle(dg *discordgo.Session, i *discordgo.InteractionCre
 		},
 	)
 	if err != nil {
-		log.Printf("unable to print puzzle: %v\n", err)
+		log.Printf("unable to respond to puzzle creation request: %v\n", err)
 		return fmt.Errorf("Editing response with puzzle: %v", err)
 	}
 
@@ -359,10 +368,17 @@ func (s *server) handlePuzzle(dg *discordgo.Session, i *discordgo.InteractionCre
 	return nil
 }
 
-func puzzleContent(num int, userID string, g *game) string {
+func puzzleContent(num int, member *discordgo.Member, g *game) string {
+
+	var displayName string
+	if member.Nick != "" {
+		displayName = member.Nick
+	} else {
+		displayName = member.User.Username
+	}
 
 	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("%s used **/puzzle**\n", userID))
+	sb.WriteString(fmt.Sprintf("%s used **/puzzle**\n", displayName))
 	sb.WriteString(fmt.Sprintf("**Puzzle #%d** -- %s\n", num, g.difficultyName))
 
 	var color string
