@@ -28,6 +28,7 @@ type discordInstance struct {
 	puzzleIdx  int
 	activeGame *game
 
+	puzzleTimestamp time.Time
 	solutionTracker *solutionTracker
 	//submittedSolutions map[string][]move
 }
@@ -137,8 +138,9 @@ func (s *server) run() {
 		}
 
 		s.instances[gc.Guild.ID] = &discordInstance{
-			serverID:  gc.Guild.ID,
-			channelID: channel.ID,
+			serverID:        gc.Guild.ID,
+			channelID:       channel.ID,
+			solutionTracker: &solutionTracker{},
 		}
 
 		//		var sb strings.Builder
@@ -172,6 +174,11 @@ func (s *server) run() {
 				err := s.handleHelp(dg, i)
 				if err != nil {
 					log.Printf("help handler: %v", err)
+				}
+			case "share":
+				err := s.handleShare(dg, i)
+				if err != nil {
+					log.Printf("share handler: %v", err)
 				}
 			default:
 				log.Println("Unknown Command:", i.ApplicationCommandData().Name)

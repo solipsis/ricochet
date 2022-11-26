@@ -83,7 +83,10 @@ func arenaSolution(dg *discordgo.Session, i *discordgo.Interaction, instance *di
 		}
 	}
 
-	instance.solutionTracker.set(i.Member.User.ID, moves)
+	current := instance.solutionTracker.get(i.Member.User.ID)
+	if len(current) == 0 || len(moves) <= len(current) {
+		instance.solutionTracker.set(i.Member.User.ID, moves)
+	}
 
 	var content string
 	if isOptimal {

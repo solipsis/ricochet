@@ -6,6 +6,7 @@ import (
 	"image/png"
 	"log"
 	"strings"
+	"time"
 
 	"github.com/bwmarrin/discordgo"
 )
@@ -132,6 +133,84 @@ func (s *server) handleSolve(dg *discordgo.Session, i *discordgo.InteractionCrea
 	return nil
 }
 
+func (s *server) handleShare(dg *discordgo.Session, i *discordgo.InteractionCreate) error {
+	// ack
+	err := dg.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
+		Data: &discordgo.InteractionResponseData{
+			Flags: 1 << 6, // ephemeral
+		},
+	})
+	if err != nil {
+		log.Printf("responding help ack: %v\n", err)
+		return fmt.Errorf("respoding help ack: %v", err)
+	}
+
+	// look up instance
+	instance := s.instances[i.GuildID]
+
+	currentMoves := instance.solutionTracker.get(i.Member.User.ID)
+	if len(currentMoves) == 0 {
+		content := "You have not solved this puzzle"
+		_, err = dg.InteractionResponseEdit(i.Interaction,
+			&discordgo.WebhookEdit{
+				Content: &content,
+			},
+		)
+		if err != nil {
+			return fmt.Errorf("sending help response: %v", err)
+		}
+		return nil
+	}
+
+	// build answer string
+	var sb strings.Builder
+	sb.WriteString(fmt.Sprintf("<@%s> used **/share**\n", i.Member.User.ID))
+	for idx, m := range currentMoves {
+		switch m.id {
+		case 'R':
+			sb.WriteString(":red_circle:")
+		case 'B':
+			sb.WriteString(":blue_circle:")
+		case 'G':
+			sb.WriteString(":green_circle:")
+		case 'Y':
+			sb.WriteString(":yellow_circle:")
+		}
+		switch m.dir {
+		case UP:
+			sb.WriteString(":arrow_up:")
+		case DOWN:
+			sb.WriteString(":arrow_down:")
+		case LEFT:
+			sb.WriteString(":arrow_left:")
+		case RIGHT:
+			sb.WriteString(":arrow_right:")
+		}
+
+		if idx != len(currentMoves)-1 {
+			sb.WriteString(" - ")
+		}
+	}
+
+	if _, err := dg.ChannelMessageSend(instance.channelID, sb.String()); err != nil {
+		return fmt.Errorf("sending share string: %v", err)
+	}
+
+	// edit original response
+	content := "Solution shared"
+	_, err = dg.InteractionResponseEdit(i.Interaction,
+		&discordgo.WebhookEdit{
+			Content: &content,
+		},
+	)
+	if err != nil {
+		return fmt.Errorf("editing original share response: %v", err)
+	}
+
+	return nil
+}
+
 func (s *server) handleHelp(dg *discordgo.Session, i *discordgo.InteractionCreate) error {
 	// ack
 	err := dg.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
@@ -147,16 +226,23 @@ func (s *server) handleHelp(dg *discordgo.Session, i *discordgo.InteractionCreat
 
 	// respond
 	var sb strings.Builder
+	sb.WriteString("**Ricochet-Robotbot** v0.0.1\n")
+	sb.WriteString("----------------------------\n\n")
 	sb.WriteString("**Commands**:\n")
 	sb.WriteString("  **/puzzle**: Generate a new puzzle to solve\n")
 	sb.WriteString("  **/solve**: Submit a solution to the current puzzle\n")
+	sb.WriteString("  **/share**: Share your solution to the current puzzle\n")
 	sb.WriteString("\n**How to Play**:\n")
 	sb.WriteString("1. robots may only move Up, Down, Left, or Right\n")
 	sb.WriteString("2. robots move in a straight line until hitting a wall or another robot\n")
 	sb.WriteString("3. you can move robots in any order and as many times as you like\n")
-	sb.WriteString("\nSubmit your answer like \"**/solve RU-GD-BL-YR**\"\n")
+	sb.WriteString("\nSubmit your answer using the **/solve** command e.g. \"**/solve RU-GD-BL-YR**\"\n")
 	sb.WriteString("R=red, G=green, B=blue, Y=yellow\n")
 	sb.WriteString("U=up, D=down, L=left, R=right\n")
+	sb.WriteString("\n**Coming Soon**:\n")
+	sb.WriteString("- Competitive Mode\n")
+	sb.WriteString("- More Boards\n")
+	sb.WriteString("- Rules Variants\n")
 
 	content := sb.String()
 	_, err = dg.InteractionResponseEdit(i.Interaction,
@@ -188,14 +274,19 @@ func (s *server) handlePuzzle(dg *discordgo.Session, i *discordgo.InteractionCre
 	instance := s.instances[i.GuildID]
 
 	// haven't solved current puzzle
-	if instance.activeGame != nil && instance.solutionTracker.numSubmitted() == 0 {
-		content := "Current puzzle must be solved before requesting a new one"
-		dg.InteractionResponseEdit(i.Interaction,
-			&discordgo.WebhookEdit{
-				Content: &content,
-			},
-		)
-		return nil
+	if instance.activeGame != nil {
+		//if instance.solutionTracker.numSubmitted() == 0
+		optimalFound := len(instance.solutionTracker.currentBest()) == instance.activeGame.lenOptimalSolution
+		timePassed := time.Since(instance.puzzleTimestamp) > (time.Second * 60 * 2)
+		if !optimalFound && !timePassed {
+			content := "Current puzzle must be solved optimally or 2 minutes have passed before requesting a new one"
+			dg.InteractionResponseEdit(i.Interaction,
+				&discordgo.WebhookEdit{
+					Content: &content,
+				},
+			)
+			return nil
+		}
 	}
 
 	// grab a game of the proper difficulty
@@ -219,6 +310,7 @@ func (s *server) handlePuzzle(dg *discordgo.Session, i *discordgo.InteractionCre
 
 	instance.activeGame = g
 	instance.solutionTracker = &solutionTracker{}
+	instance.puzzleTimestamp = time.Now()
 
 	var moveStrs []string
 	for _, m := range g.moves {
@@ -244,7 +336,7 @@ func (s *server) handlePuzzle(dg *discordgo.Session, i *discordgo.InteractionCre
 	}
 
 	dg.ChannelMessageSendComplex(instance.channelID, &discordgo.MessageSend{
-		Content: puzzleContent(instance.puzzleIdx, instance.activeGame),
+		Content: puzzleContent(instance.puzzleIdx, i.Interaction.Member.User.Username, instance.activeGame),
 		Files:   []*discordgo.File{file},
 	})
 
@@ -266,9 +358,10 @@ func (s *server) handlePuzzle(dg *discordgo.Session, i *discordgo.InteractionCre
 	return nil
 }
 
-func puzzleContent(num int, g *game) string {
+func puzzleContent(num int, userID string, g *game) string {
 
 	var sb strings.Builder
+	sb.WriteString(fmt.Sprintf("%s used **/puzzle**\n", userID))
 	sb.WriteString(fmt.Sprintf("**Puzzle #%d** -- %s\n", num, g.difficultyName))
 
 	var color string
@@ -330,6 +423,10 @@ var slashCommands = []*discordgo.ApplicationCommand{
 	{
 		Name:        "help",
 		Description: "how to interact with ricochet-robotbot",
+	},
+	{
+		Name:        "share",
+		Description: "share your solution to the current problem",
 	},
 }
 
