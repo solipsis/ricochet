@@ -38,6 +38,17 @@ func TestValidate(t *testing.T) {
 	fmt.Println(validate(&g, g.board, moves, g.activeGoal))
 }
 
+func TestBroken(t *testing.T) {
+	g := parseBoard(debugBoard)
+	g.optimalMoves = g.preCompute(g.activeGoal.position)
+	g.activeRobot = g.robots['B']
+	fmt.Println(printBoard(g.board, g.size, g.robots, g.activeGoal))
+	res := g.solve(9)
+
+	fmt.Println(res)
+
+}
+
 func TestRandomGame(t *testing.T) {
 	g := randomGame()
 	printBoard(g.board, g.size, g.robots, g.activeGoal)

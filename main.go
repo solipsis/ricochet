@@ -163,18 +163,20 @@ func (g *game) search(depth int, maxDepth int) bool {
 		return false
 	}
 
+	if depth > maxDepth {
+		return false
+	}
+
 	// check state cache
 	prev, ok := g.cache[g.state()]
-	if !ok || prev < maxDepth-depth {
+	// XXX: Changing this from < to <= fixes incorrect solution for "debugBoard"
+	// what is slightly wrong about the original?
+	if !ok || prev <= maxDepth-depth {
 		// better than previous
 		g.cache[g.state()] = maxDepth - depth
 	} else {
 		//	fmt.Println("cache hit")
 		// we've been here and its worse
-		return false
-	}
-
-	if depth > maxDepth {
 		return false
 	}
 
