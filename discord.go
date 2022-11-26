@@ -11,8 +11,9 @@ import (
 	"github.com/bwmarrin/discordgo"
 )
 
-const ArenaServerID = "810570434453438475" // my discord
-//const ArenaServerID = "8105704344534384751" // my discord
+//const ArenaServerID = "810570434453438475" // my discord
+const ArenaServerID = "692911659169218560" // arena
+//const ArenaServerID = "8105704344534384751" //not my discord
 
 func findChannel(dg *discordgo.Session, guildID string) (*discordgo.Channel, error) {
 	// check if channel already exists
