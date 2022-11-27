@@ -119,8 +119,14 @@ func (g *game) move(r *robot, dir direction) bool {
 		return false
 	}
 	// if move is reverse of the last move we did, abort
-	if len(g.moves) > 0 && g.moves[len(g.moves)-1].dir == reverse(dir) {
-		return false
+	if len(g.moves) > 0 {
+		prevMove := g.moves[len(g.moves)-1]
+		isSameRobot := prevMove.id == r.id
+		isReverseMovement := prevMove.dir == reverse(dir)
+
+		if isSameRobot && isReverseMovement {
+			return false
+		}
 	}
 
 	// if next square has robot, abort
@@ -170,8 +176,9 @@ func (g *game) search(depth int, maxDepth int) bool {
 	// check state cache
 	prev, ok := g.cache[g.state()]
 	// XXX: Changing this from < to <= fixes incorrect solution for "debugBoard"
-	// what is slightly wrong about the original?
-	if !ok || prev <= maxDepth-depth {
+	// what is slightly wrong about the original? It was detecting reverse movements
+	// of all pieces not just the piece that moved
+	if !ok || prev < maxDepth-depth {
 		// better than previous
 		g.cache[g.state()] = maxDepth - depth
 	} else {
@@ -182,10 +189,32 @@ func (g *game) search(depth int, maxDepth int) bool {
 
 	g.visits += 1
 
+	var breakpoint bool
+	/*
+		if len(g.moves) >= 2 && g.moves[0].id == 'B' && g.moves[0].dir == UP &&
+			g.moves[1].id == 'B' && g.moves[1].dir == RIGHT {
+			//g.moves[2].id == 'Y' && g.moves[2].dir == LEFT {
+			//	g.moves[3].id == 'Y' && g.moves[3].dir == UP {
+			breakpoint = true
+		}
+	*/
+
+	//for _, id := range []byte{'B', 'Y', 'R', 'G'} {
+	//	i := id
+	//	r := g.robots[id]
+
 	for i, r := range g.robots {
 
 		for _, dir := range directions {
 			prevPosition := r.position
+
+			/*
+				if len(g.moves) >= 2 && g.moves[0].id == 'B' && g.moves[0].dir == UP &&
+					g.moves[1].id == 'B' && g.moves[1].dir == RIGHT && id == 'Y' && dir == LEFT {
+					breakpoint = true
+					g.move(r, dir)
+				}
+			*/
 
 			// attempt to move robot
 			if !g.move(r, dir) {
@@ -203,6 +232,10 @@ func (g *game) search(depth int, maxDepth int) bool {
 			r.position = prevPosition
 
 			if success {
+				// XXX TODO remove
+				if false {
+					fmt.Println(breakpoint)
+				}
 				return true
 			}
 
@@ -216,6 +249,7 @@ func (g *game) search(depth int, maxDepth int) bool {
 func (g *game) solve(maxDepth int) string {
 	for currentMaxDepth := 1; currentMaxDepth < maxDepth; currentMaxDepth++ {
 		success := g.search(0, currentMaxDepth)
+		//fmt.Println("cache-size:", len(g.cache))
 		if success {
 			var moveStrs []string
 			for _, m := range g.moves {

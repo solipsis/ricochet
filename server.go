@@ -226,7 +226,7 @@ func lookForSolutions(s *server) {
 
 				rg := randomGame()
 				rg.optimalMoves = rg.preCompute(rg.activeGoal.position)
-				res := rg.solve(18)
+				res := rg.solve(16)
 				moves, _ := parseMoves(res)
 				numMoves := len(moves)
 				rg.lenOptimalSolution = numMoves
