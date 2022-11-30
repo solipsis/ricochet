@@ -134,6 +134,10 @@ func (s *server) handleSolve(dg *discordgo.Session, i *discordgo.InteractionCrea
 	return nil
 }
 
+func (s *server) handleHowToPlay(dg *discordgo.Session, i *discordgo.InteractionCreate) error {
+	return s.handleHelp(dg, i)
+}
+
 func (s *server) handleShare(dg *discordgo.Session, i *discordgo.InteractionCreate) error {
 	// ack
 	err := dg.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
@@ -227,12 +231,17 @@ func (s *server) handleHelp(dg *discordgo.Session, i *discordgo.InteractionCreat
 
 	// respond
 	var sb strings.Builder
-	sb.WriteString("**Ricochet-Robotbot** v0.0.1\n")
+	sb.WriteString("**Ricochet-Robotbot** v0.0.2\n")
 	sb.WriteString("----------------------------\n\n")
 	sb.WriteString("**Commands**:\n")
 	sb.WriteString("  **/puzzle**: Generate a new puzzle to solve\n")
 	sb.WriteString("  **/solve**: Submit a solution to the current puzzle\n")
 	sb.WriteString("  **/share**: Share your solution to the current puzzle\n")
+	sb.WriteString("  **/how-to-play**: Additional explanation of game rules\n")
+	sb.WriteString("\n**Coming Soon**:\n")
+	sb.WriteString("- Competitive Mode\n")
+	sb.WriteString("- More Boards\n")
+	sb.WriteString("- Rules Variants\n")
 	sb.WriteString("\n**How to Play**:\n")
 	sb.WriteString("1. robots may only move Up, Down, Left, or Right\n")
 	sb.WriteString("2. robots move in a straight line until hitting a wall or another robot\n")
@@ -240,15 +249,26 @@ func (s *server) handleHelp(dg *discordgo.Session, i *discordgo.InteractionCreat
 	sb.WriteString("\nSubmit your answer using the **/solve** command e.g. \"**/solve RU-GD-BL-YR**\"\n")
 	sb.WriteString("R=red, G=green, B=blue, Y=yellow\n")
 	sb.WriteString("U=up, D=down, L=left, R=right\n")
-	sb.WriteString("\n**Coming Soon**:\n")
-	sb.WriteString("- Competitive Mode\n")
-	sb.WriteString("- More Boards\n")
-	sb.WriteString("- Rules Variants\n")
+	sb.WriteString("\n**Example Game**:\n")
+	sb.WriteString("The attached images show the user creating a new puzzle with the **/puzzle** command. Then solving it with the **/solve** command. Then sharing their answer with the **/share** command")
+
+	// load sample images
+	images := []*discordgo.File{}
+	for _, fname := range []string{"tut1.png", "tut2.png", "tut3.png"} {
+		buf, _ := ioutil.ReadFile(filepath.Join("ricochet-images", fname))
+		img := bytes.NewBuffer(buf)
+		images = append(images, &discordgo.File{
+			Name:        fname,
+			ContentType: "image/png",
+			Reader:      img,
+		})
+	}
 
 	content := sb.String()
 	_, err = dg.InteractionResponseEdit(i.Interaction,
 		&discordgo.WebhookEdit{
 			Content: &content,
+			Files:   images,
 		},
 	)
 	if err != nil {
@@ -278,9 +298,9 @@ func (s *server) handlePuzzle(dg *discordgo.Session, i *discordgo.InteractionCre
 	if instance.activeGame != nil {
 		//if instance.solutionTracker.numSubmitted() == 0
 		optimalFound := len(instance.solutionTracker.currentBest()) == instance.activeGame.lenOptimalSolution
-		timePassed := time.Since(instance.puzzleTimestamp) > (time.Second * 60 * 2)
+		timePassed := time.Since(instance.puzzleTimestamp) > (time.Second * 60 * 5)
 		if !optimalFound && !timePassed {
-			content := "Current puzzle must be solved optimally or 2 minutes have passed before requesting a new one"
+			content := "Current puzzle must be solved optimally or 5 minutes have passed before requesting a new one"
 			dg.InteractionResponseEdit(i.Interaction,
 				&discordgo.WebhookEdit{
 					Content: &content,
@@ -402,7 +422,7 @@ func puzzleContent(num int, member *discordgo.Member, g *game) string {
 var slashCommands = []*discordgo.ApplicationCommand{
 	{
 		Name:        "puzzle",
-		Description: "generate a new puzzle",
+		Description: "generate a new puzzle. This will overwrite the current active puzzle",
 		Options: []*discordgo.ApplicationCommandOption{
 			{
 				Name:        "difficulty",
@@ -444,6 +464,10 @@ var slashCommands = []*discordgo.ApplicationCommand{
 	{
 		Name:        "share",
 		Description: "share your solution to the current problem",
+	},
+	{
+		Name:        "how-to-play",
+		Description: "short tutorial on playing the game",
 	},
 }
 

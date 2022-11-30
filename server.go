@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"log"
 	"os"
@@ -111,7 +110,13 @@ func (s *server) run() {
 
 		// TODO: Create if not exists
 		if channel == nil {
-			channel, err = dg.GuildChannelCreate(gc.ID, "ricochet", discordgo.ChannelTypeGuildText)
+			//channel, err = dg.GuildChannelCreate(gc.ID, "ricochet", discordgo.ChannelTypeGuildText)
+
+			channel, err = dg.GuildChannelCreateComplex(gc.ID, discordgo.GuildChannelCreateData{
+				Name:  "ricochet",
+				Type:  discordgo.ChannelTypeGuildText,
+				Topic: "**/how-to-play** to get started",
+			})
 			if err != nil {
 				log.Printf("unable to create ricochet channel")
 				return
@@ -180,6 +185,11 @@ func (s *server) run() {
 				if err != nil {
 					log.Printf("share handler: %v", err)
 				}
+			case "how-to-play":
+				err := s.handleHowToPlay(dg, i)
+				if err != nil {
+					log.Printf("how-to-play handler: %v", err)
+				}
 			default:
 				log.Println("Unknown Command:", i.ApplicationCommandData().Name)
 			}
@@ -194,9 +204,10 @@ func (s *server) run() {
 	}
 
 	cat := categorizer{
-		easy:   make(chan (*game), gameBuffer),
-		medium: make(chan (*game), gameBuffer),
-		hard:   make(chan (*game), gameBuffer),
+		easy:    make(chan (*game), gameBuffer),
+		medium:  make(chan (*game), gameBuffer),
+		hard:    make(chan (*game), gameBuffer),
+		extreme: make(chan (*game), gameBuffer),
 	}
 	s.categorizer = &cat
 
@@ -226,31 +237,40 @@ func lookForSolutions(s *server) {
 
 				rg := randomGame()
 				rg.optimalMoves = rg.preCompute(rg.activeGoal.position)
-				res := rg.solve(16)
+				res := rg.solve(20)
 				moves, _ := parseMoves(res)
 				numMoves := len(moves)
 				rg.lenOptimalSolution = numMoves
 
 				// Add solution to proper buffer. Discard if that buffer already has enough solutions
 				// of that length
-				if numMoves >= 5 && numMoves <= 7 {
+				if numMoves >= 6 && numMoves <= 8 {
 					select {
 					case s.categorizer.easy <- rg:
 						fmt.Println("Easy found:")
 					default:
 						//			fmt.Println("discarding easy")
 					}
-				} else if numMoves >= 8 && numMoves <= 12 {
+				} else if numMoves >= 9 && numMoves <= 12 {
 					select {
 					case s.categorizer.medium <- rg:
 						fmt.Println("Medium found:")
 					default:
 						//			fmt.Println("discarding medium")
 					}
-				} else if numMoves >= 13 && numMoves <= 20 {
+				} else if numMoves >= 13 && numMoves <= 16 {
 					select {
 					case s.categorizer.hard <- rg:
 						fmt.Println("Hard found:", numMoves)
+					default:
+						fmt.Println("Hard found:", numMoves)
+						//			fmt.Println("discarding hard")
+					}
+				} else if numMoves >= 17 && numMoves <= 20 {
+					fmt.Println("EXTREME found:", numMoves)
+					select {
+					case s.categorizer.extreme <- rg:
+						fmt.Println("EXTREME found:", numMoves)
 					default:
 						//			fmt.Println("discarding hard")
 					}
@@ -273,6 +293,8 @@ func (s *server) servePuzzle(difficulty string) *game {
 		g = <-s.categorizer.medium
 	case "hard":
 		g = <-s.categorizer.hard
+	case "extreme":
+		g = <-s.categorizer.extreme
 	}
 	return g
 }

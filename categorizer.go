@@ -7,9 +7,10 @@ import (
 )
 
 type categorizer struct {
-	easy   chan (*game)
-	medium chan (*game)
-	hard   chan (*game)
+	easy    chan (*game)
+	medium  chan (*game)
+	hard    chan (*game)
+	extreme chan (*game)
 }
 
 func weightSolution(solution string) int {
