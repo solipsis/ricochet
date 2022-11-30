@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"math/rand"
 	"strings"
 )
@@ -45,10 +44,43 @@ var topHalfs = []string{blueYellowHalf1, blueYellowHalf2, blueYellowHalf3, blueY
 var bottomHalfs = []string{redGreenHalf1, redGreenHalf2, redGreenHalf3, redGreenHalf4}
 
 func randomBoard() string {
-	top := strings.TrimSpace(topHalfs[rand.Intn(len(topHalfs))])
-	bot := strings.TrimSpace(bottomHalfs[rand.Intn(len(bottomHalfs))])
+	//	top := strings.TrimSpace(topHalfs[rand.Intn(len(topHalfs))])
+	//	bot := strings.TrimSpace(bottomHalfs[rand.Intn(len(bottomHalfs))])
+	tl := blueQuandrants[rand.Intn(len(blueQuandrants))]
+	tr := yellowQuandrants[rand.Intn(len(yellowQuandrants))]
+	bl := redQuandrants[rand.Intn(len(redQuandrants))]
+	br := greenQuandrants[rand.Intn(len(greenQuandrants))]
 
-	return fmt.Sprintf("%s\n%s", top, bot)
+	stitched := stitchQuandrants(tl, tr, bl, br)
+	return strings.TrimSpace(stitched)
+
+	//return fmt.Sprintf("%s\n%s", top, bot)
+}
+
+func stitchQuandrants(tl, tr, bl, br string) string {
+
+	var sb strings.Builder
+
+	lrows := strings.Split(tl, "\n")[1:] // newline added to get pretty formatting
+	rrows := strings.Split(tr, "\n")[1:]
+	for idx := range lrows {
+		sb.WriteString(lrows[idx])
+		sb.WriteString(rrows[idx])
+		sb.WriteString("\n")
+	}
+
+	lrows = strings.Split(bl, "\n")[1:] // newline added to get pretty formatting
+	rrows = strings.Split(br, "\n")[1:]
+
+	for idx := range lrows {
+		sb.WriteString(lrows[idx])
+		sb.WriteString(rrows[idx])
+		if idx != len(lrows)-1 {
+			sb.WriteString("\n")
+		}
+	}
+
+	return sb.String()
 }
 
 //var debugBoard = fmt.Sprintf("%s\n%s", strings.TrimSpace(blueYellowHalf1), strings.TrimSpace(redGreenHalf2))
@@ -106,6 +138,156 @@ var blueYellowHalf1 = `
 |                           |       |   | r                     |
 •   •   •   •   •   •   •   •   •   •   •---•   •   •   •   •   •`
 
+var blueQuandrants = []string{
+	`
+•---•---•---•---•---•---•---•---•
+| R   B   G   Y     |            
+•   •   •---•   •   •   •   •   •
+|       | y                      
+•   •   •   •   •   •   •   •   •
+|                                
+•   •   •   •   •   •   •   •   •
+|                       | b      
+•   •   •   •   •   •   •---•   •
+|                                
+•---•   •   •   •---•   •   •   •
+|                 r |            
+•   •   •   •   •   •   •   •   •
+|     g |                        
+•   •---•   •   •   •   •   •---•
+|                           |    
+•   •   •   •   •   •   •   •   •`,
+	`
+•---•---•---•---•---•---•---•---•
+| R   B   G   Y         |        
+•   •   •   •   •   •   •   •   •
+|                                
+•   •   •   •---•   •   •   •   •
+|           | y                  
+•   •   •   •   •   •   •   •   •
+|                   | b          
+•---•   •---•   •   •---•   •   •
+|         r |                    
+•   •   •   •   •   •   •   •   •
+|                 g |            
+•   •   •   •   •---•   •   •   •
+|                                
+•   •   •   •   •   •   •   •---•
+|                           |    
+•   •   •   •   •   •   •   •   •`,
+	`
+•---•---•---•---•---•---•---•---•
+| R   B   G   Y |                
+•   •   •   •   •   •   •   •   •
+|                     g |        
+•   •   •   •   •   •---•   •   •
+|   | r                          
+•   •---•   •   •   •   •   •   •
+|                                
+•---•   •   •   •   •   •---•   •
+|                       | y      
+•   •   •   •   •   •   •   •   •
+|                                
+•   •   •---•   •   •   •   •   •
+|         b |                    
+•   •   •   •   •   •   •   •---•
+|                           |    
+•   •   •   •   •   •   •   •   •`,
+	`
+•---•---•---•---•---•---•---•---•
+| R   B   G | Y                  
+•   •   •   •   •   •   •   •   •
+|                                
+•   •   •   •   •   •   •---•   •
+|                     g | y      
+•   •   •   •   •   •---•   •   •
+|                                
+•   •   •   •   •   •   •   •   •
+|                                
+•   •   •   •   •   •   •   •   •
+|   | r                          
+•   •---•   •   •   •   •   •   •
+|                                
+•---•   •   •   •---•   •   •---•
+|                 b |       |    
+•   •   •   •   •   •   •   •   •`,
+}
+
+var yellowQuandrants = []string{
+	`
+---•---•---•---•---•---•---•---•
+               |               |
+   •   •   •   •   •   •   •   •
+     y |                       |
+   •---•   •   •   •   •   •   •
+                               |
+   •   •   •   •   •   •   •---•
+           | r                 |
+   •   •   •---•   •   •   •   •
+                               |
+   •   •   •   •   •   •---•   •
+                       | b     |
+   •   •---•   •   •   •   •   •
+         g |                   |
+---•   •   •   •   •   •   •   •
+   |               | y         |
+   •   •   •   •   •---•   •   •`,
+	`
+---•---•---•---•---•---•---•---•
+   |                           |
+   •   •   •   •   •   •   •   •
+                 y |           |
+   •   •   •   •---•   •   •   •
+       | r                     |
+   •   •---•   •   •   •   •   •
+                               |
+   •   •   •   •   •   •   •---•
+                               |
+   •   •   •---•   •   •   •   •
+             g |               |
+   •   •   •   •   •   •---•   •
+                       | b     |
+---•   •   •   •   •   •   •   •
+   |   | r                     |
+   •   •---•   •   •   •   •   •`,
+	`
+---•---•---•---•---•---•---•---•
+           |                   |
+   •   •   •   •---•   •   •   •
+               | g             |
+   •   •   •   •   •   •   •   •
+ r |                   | r     |
+---•   •   •   •   •   •---•   •
+                               |
+   •   •   •   •   •   •   •   •
+                               |
+   •   •   •   •   •   •   •---•
+     b |                       |
+   •---•   •---•   •   •   •   •
+             y |               |
+---•   •   •   •   •   •   •   •
+   |                           |
+   •   •   •   •   •   •   •   •`,
+	`
+---•---•---•---•---•---•---•---•
+   |                           |
+   •   •   •   •   •   •   •   •
+       | r                     |
+   •   •---•   •   •   •   •   •
+                 b |           |
+   •   •   •   •---•   •   •   •
+               | g             |
+---•   •   •   •   •   •   •   •
+ r |                           |
+   •   •   •   •   •   •   •   •
+                               |
+   •   •   •   •   •---•   •   •
+                     y |       |
+---•   •   •   •   •   •   •   •
+   |                           |
+   •   •   •   •   •   •   •   •`,
+}
+
 var blueYellowHalf2 = `
 •---•---•---•---•---•---•---•---•---•---•---•---•---•---•---•---•
 | R   B   G   Y     |                           |               |
@@ -162,6 +344,148 @@ var blueYellowHalf4 = `
 •   •   •   •   •   •   •   •---•---•   •   •   •   •   •   •   •
 |                           |       |   | r                     |
 •   •   •   •   •   •   •   •   •   •   •---•   •   •   •   •   •`
+
+var redQuandrants = []string{
+	`
+|                   | y     |    
+•   •   •---•   •   •---•   •---•
+|       | g                      
+•   •   •   •   •   •   •   •   •
+|                                
+•   •   •   •   •   •   •   •   •
+|                                
+•---•   •   •   •   •   •   •   •
+|                                
+•   •   •   •   •---•   •   •   •
+|                 b |            
+•   •   •   •   •   •   •   •   •
+|     r |                        
+•   •---•   •   •   •   •   •   •
+|                       |        
+•---•---•---•---•---•---•---•---•`,
+	`
+|                           |    
+•   •   •   •   •   •   •   •---•
+|                                
+•   •   •   •   •   •   •   •   •
+|                   | y          
+•   •---•   •   •   •---•   •   •
+|   | g                          
+•   •   •   •   •   •   •---•   •
+|                         b |    
+•   •   •   •   •   •   •   •   •
+|                                
+•---•   •   •   •   •   •   •   •
+|             r |                
+•   •   •   •---•   •   •   •   •
+|                       |        
+•---•---•---•---•---•---•---•---•`,
+	`
+|                     r |   |    
+•   •   •   •   •   •---•   •---•
+|                                
+•   •   •---•   •   •   •   •   •
+|         b |                    
+•   •   •   •   •   •   •   •   •
+|                                
+•---•   •   •   •   •   •   •   •
+|                                
+•   •   •   •   •---•   •   •   •
+|               | g              
+•   •   •   •   •   •   •   •   •
+|                       | y      
+•   •   •   •   •   •   •---•   •
+|                   |            
+•---•---•---•---•---•---•---•---•`,
+	`
+|                           |    
+•   •   •---•   •   •   •   •---•
+|         b |                    
+•   •   •   •   •   •   •   •   •
+|                       | y      
+•---•   •   •   •   •   •---•   •
+|                                
+•   •   •   •   •   •   •   •   •
+|                                
+•   •   •   •   •   •   •   •   •
+|                 r |            
+•   •   •   •   •---•   •   •   •
+|               | g              
+•   •   •   •   •   •   •   •   •
+|           |                    
+•---•---•---•---•---•---•---•---•`,
+}
+
+var greenQuandrants = []string{
+	`
+   |                           |
+---•   •   •   •   •   •   •---•
+           | b                 |
+   •   •   •---•   •   •   •   •
+                               |
+   •   •   •   •   •   •---•   •
+                         r |   |
+   •---•   •   •   •   •   •   •
+   | y                         |
+   •   •   •   •   •   •   •   •
+                               |
+   •   •   •   •   •   •   •   •
+                 g |           |
+   •   •   •   •---•   •   •   •
+                       |       |
+---•---•---•---•---•---•---•---•`,
+	`
+   |                           |
+---•   •   •   •---•   •   •   •
+                 r |           |
+   •   •   •   •   •   •   •---•
+   | b                         |
+   •---•   •   •   •   •   •   •
+                               |
+   •   •   •   •   •   •   •   •
+                               |
+   •   •   •   •   •   •   •   •
+                         g |   |
+   •---•   •   •   •   •---•   •
+   | y                         |
+   •   •   •   •   •   •   •   •
+           |                   |
+---•---•---•---•---•---•---•---•`,
+	`
+   |                           |
+---•   •   •   •---•   •   •   •
+                 b |           |
+   •   •   •   •   •   •   •---•
+                               |
+   •   •   •   •   •   •   •   •
+                               |
+   •---•   •   •   •   •   •   •
+   | y                         |
+   •   •   •   •   •   •   •   •
+                       | g     |
+   •   •   •   •   •   •---•   •
+             r |               |
+   •   •   •---•   •   •   •   •
+                       |       |
+---•---•---•---•---•---•---•---•`,
+	`
+   |                           |
+---•   •   •   •---•   •   •   •
+                 b | g         |
+   •   •   •   •   •---•   •---•
+                               |
+   •---•   •   •   •   •   •   •
+   | y                         |
+   •   •   •   •   •   •   •   •
+                         r |   |
+   •   •   •   •   •   •---•   •
+                               |
+   •   •   •   •   •   •   •   •
+                               |
+   •   •   •   •   •   •   •   •
+       |                       |
+---•---•---•---•---•---•---•---•`,
+}
 
 var redGreenHalf1 = `
 |                   | y     |       |                           |

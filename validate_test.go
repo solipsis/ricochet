@@ -103,6 +103,8 @@ func TestExtreme(t *testing.T) {
 }
 
 func TestRandomGame(t *testing.T) {
+
+	rand.Seed(time.Now().UnixNano())
 	g := randomGame()
 	printBoard(g.board, g.size, g.robots, g.activeGoal)
 
