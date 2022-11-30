@@ -4,14 +4,16 @@ import (
 	"bytes"
 	"fmt"
 	"image/png"
+	"io/ioutil"
 	"log"
+	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/bwmarrin/discordgo"
 )
 
-//const ArenaServerID = "810570434453438475" // my discord
+const TestServerID = "810570434453438475"  // my discord
 const ArenaServerID = "692911659169218560" // arena
 //const ArenaServerID = "8105704344534384751" //not my discord
 

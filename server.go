@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"os"
@@ -11,7 +12,8 @@ import (
 	"github.com/jackc/pgx/v4/pgxpool"
 )
 
-const DiscordApplicationID = "1044049636106706974"
+const DiscordApplicationID = "1044049636106706974" // PROD
+//const DiscordApplicationID = "1047352593430626305" // DEV
 const gameBuffer = 5
 
 type server struct {
@@ -77,7 +79,8 @@ func (st *solutionTracker) numSubmitted() int {
 func (s *server) run() {
 	s.instances = make(map[string]*discordInstance)
 
-	discordToken := os.Getenv("RICOCHET_DISCORD_TOKEN")
+	discordToken := os.Getenv("RICOCHET_DISCORD_TOKEN") // PROD
+	//	discordToken := os.Getenv("RICOCHET_DEV_DISCORD_TOKEN") //dev
 	if discordToken == "" {
 		log.Fatal("Missing required env: RICOCHET_DISCORD_TOKEN")
 	}
