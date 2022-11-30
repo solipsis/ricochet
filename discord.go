@@ -28,7 +28,7 @@ func findChannel(dg *discordgo.Session, guildID string) (*discordgo.Channel, err
 		if ch.Type != discordgo.ChannelTypeGuildText {
 			continue
 		}
-		if ch.Name == "ricochet" {
+		if ch.Name == "ricochet" || ch.Name == "🤖｜ricochet" {
 			return ch, nil
 		}
 	}
