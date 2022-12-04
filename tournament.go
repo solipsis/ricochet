@@ -15,7 +15,7 @@ import (
 
 var tournamentTemplate = `%s used **/tournament**
 
-**3** puzzles will be shown in a row and you will **%d** minutes to solve each one.
+**3** puzzles will be shown in a row and you will have **%d** minutes to solve each one.
 The winner is the user with the fewest total moves across all puzzles.
 Any puzzle you do not solve in the time limit will count as **30** moves.
 
@@ -86,7 +86,7 @@ func (s *server) handleTournament(dg *discordgo.Session, i *discordgo.Interactio
 		durationMinutes = defaultTournamentDuration
 	}
 
-	fmt.Printf("difficulty: %s, duration: %d\n", difficulty, durationMinutes)
+	//	fmt.Printf("difficulty: %s, duration: %d\n", difficulty, durationMinutes)
 
 	// look up instance
 	instance := s.instances[i.GuildID]
@@ -223,7 +223,6 @@ func endTournament(dg *discordgo.Session, instance *discordInstance, t *tourname
 	// find unique users across all puzzles in tournament
 	userIDs := make(map[string]bool)
 	for _, tg := range t.games {
-		fmt.Println(tg.id)
 		users := instance.getSolutions(tg.id).users()
 		for _, u := range users {
 			userIDs[u] = true
@@ -242,7 +241,6 @@ func endTournament(dg *discordgo.Session, instance *discordInstance, t *tourname
 
 	//spew.Dump(instance.solutions)
 	scores := make(map[string][]int)
-	fmt.Printf("%+v\n", t.games)
 	for _, tg := range t.games {
 		solutions := instance.getSolutions(tg.id)
 		for userID, _ := range userIDs {
@@ -286,8 +284,6 @@ func endTournament(dg *discordgo.Session, instance *discordInstance, t *tourname
 	sort.Slice(tournamentScores, func(i, j int) bool {
 		return tournamentScores[i].total < tournamentScores[j].total
 	})
-
-	fmt.Printf("%+v\n", scores)
 
 	// build leaderboard
 	var sb strings.Builder

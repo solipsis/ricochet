@@ -59,10 +59,12 @@ func render(g *game) (image.Image, error) {
 	x := int(col * 16)
 	y := int(row * 16)
 	draw.BiLinear.Scale(dst, image.Rect(x, y, x+16, y+16), goalImg, goalImg.Bounds(), draw.Over, nil)
+	//return dst, nil
 
 	upscaled := image.NewNRGBA(image.Rect(0, 0, 32*32, 32*32))
-	//draw.CatmullRom.Scale(upscaled, upscaled.Bounds(), dst, dst.Bounds(), draw.Over, nil)
 	draw.NearestNeighbor.Scale(upscaled, upscaled.Bounds(), dst, dst.Bounds(), draw.Over, nil)
+
+	return upscaled, nil
 
 	/*
 		out, err := os.Create("out.png")
@@ -73,8 +75,6 @@ func render(g *game) (image.Image, error) {
 			log.Fatalf("Encoding: %v", err)
 		}
 	*/
-
-	return upscaled, nil
 }
 
 func pickTile(sq square) image.Image {

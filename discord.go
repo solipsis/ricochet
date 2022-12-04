@@ -161,6 +161,20 @@ func (s *server) handleShare(dg *discordgo.Session, i *discordgo.InteractionCrea
 	// look up instance
 	instance := s.instances[i.GuildID]
 
+	// no puzzle active
+	if instance.activeGame == nil {
+		content := "There is no active puzzle"
+		_, err = dg.InteractionResponseEdit(i.Interaction,
+			&discordgo.WebhookEdit{
+				Content: &content,
+			},
+		)
+		if err != nil {
+			return fmt.Errorf("sending no active puzzle response: %v", err)
+		}
+		return nil
+	}
+
 	currentMoves := instance.getSolutions(instance.puzzleIdx).get(i.Member.User.ID)
 	if len(currentMoves) == 0 {
 		content := "You have not solved this puzzle"
@@ -177,7 +191,7 @@ func (s *server) handleShare(dg *discordgo.Session, i *discordgo.InteractionCrea
 
 	// build answer string
 	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("<@%s> used **/share**\n", i.Member.User.ID))
+	sb.WriteString(fmt.Sprintf("<@%s> used **/share**\n||", i.Member.User.ID))
 	for idx, m := range currentMoves {
 		switch m.id {
 		case 'R':
@@ -204,6 +218,7 @@ func (s *server) handleShare(dg *discordgo.Session, i *discordgo.InteractionCrea
 			sb.WriteString(" - ")
 		}
 	}
+	sb.WriteString("||")
 
 	if _, err := dg.ChannelMessageSend(instance.channelID, sb.String()); err != nil {
 		return fmt.Errorf("sending share string: %v", err)
