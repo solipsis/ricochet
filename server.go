@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"log"
 	"os"
@@ -24,14 +23,32 @@ type server struct {
 }
 
 type discordInstance struct {
-	serverID   string
-	channelID  string
-	puzzleIdx  int
-	activeGame *game
+	serverID         string
+	channelID        string
+	puzzleIdx        int
+	activeGame       *game
+	activeTournament *tournament
 
 	puzzleTimestamp time.Time
-	solutionTracker *solutionTracker
-	//submittedSolutions map[string][]move
+
+	// TODO: this grows unbounded. Need to remove entries at some point
+	solutions    map[int]*solutionTracker
+	solutionLock sync.RWMutex
+}
+
+func (di *discordInstance) getSolutions(id int) *solutionTracker {
+	di.solutionLock.Lock()
+	defer di.solutionLock.Unlock()
+	if di.solutions == nil {
+		di.solutions = make(map[int]*solutionTracker)
+	}
+
+	tracker := di.solutions[id]
+	if tracker == nil {
+		di.solutions[id] = &solutionTracker{}
+	}
+
+	return di.solutions[id]
 }
 
 type solutionTracker struct {
@@ -52,6 +69,18 @@ func (st *solutionTracker) get(key string) []move {
 	st.lock.Lock()
 	defer st.lock.Unlock()
 	return st.submittedSolutions[key]
+}
+
+func (st *solutionTracker) users() []string {
+	st.lock.Lock()
+	defer st.lock.Unlock()
+
+	var users []string
+	fmt.Printf("users() submittedSolutions: %+v\n", st.submittedSolutions)
+	for k, _ := range st.submittedSolutions {
+		users = append(users, k)
+	}
+	return users
 }
 
 func (st *solutionTracker) currentBest() []move {
@@ -146,9 +175,8 @@ func (s *server) run() {
 		}
 
 		s.instances[gc.Guild.ID] = &discordInstance{
-			serverID:        gc.Guild.ID,
-			channelID:       channel.ID,
-			solutionTracker: &solutionTracker{},
+			serverID:  gc.Guild.ID,
+			channelID: channel.ID,
 		}
 
 		//		var sb strings.Builder
@@ -192,6 +220,11 @@ func (s *server) run() {
 				err := s.handleHowToPlay(dg, i)
 				if err != nil {
 					log.Printf("how-to-play handler: %v", err)
+				}
+			case "tournament":
+				err := s.handleTournament(dg, i)
+				if err != nil {
+					log.Printf("tournament handler: %v", err)
 				}
 			default:
 				log.Println("Unknown Command:", i.ApplicationCommandData().Name)

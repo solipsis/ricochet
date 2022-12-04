@@ -70,7 +70,9 @@ func addSolveRewardLedgerEntry(conn *pgxpool.Pool, userID string, amount int) er
 
 func arenaSolution(dg *discordgo.Session, i *discordgo.Interaction, instance *discordInstance, db *pgxpool.Pool, moves []move) error {
 
-	firstSolve := instance.solutionTracker.numSubmitted() == 0
+	currentSolutions := instance.getSolutions(instance.puzzleIdx)
+
+	firstSolve := currentSolutions.numSubmitted() == 0
 	isOptimal := len(moves) == instance.activeGame.lenOptimalSolution
 	tokensEarned := 0
 	if firstSolve {
@@ -78,28 +80,31 @@ func arenaSolution(dg *discordgo.Session, i *discordgo.Interaction, instance *di
 	}
 	if isOptimal {
 		// bonus points if first optimal solution
-		if instance.solutionTracker.numSubmitted() == 0 || len(moves) < len(instance.solutionTracker.currentBest()) {
+		if currentSolutions.numSubmitted() == 0 || len(moves) < len(currentSolutions.currentBest()) {
 			tokensEarned += tokenReward(instance.activeGame.difficultyName)
 		}
 	}
 
-	current := instance.solutionTracker.get(i.Member.User.ID)
+	current := currentSolutions.get(i.Member.User.ID)
 	if len(current) == 0 || len(moves) <= len(current) {
-		instance.solutionTracker.set(i.Member.User.ID, moves)
+		currentSolutions.set(i.Member.User.ID, moves)
 	}
 
-	var content string
-	if isOptimal {
-		content = fmt.Sprintf("<@%s> solved with an :tada:**optimal**:tada: %d move solution", i.Member.User.ID, len(moves))
-	} else {
-		content = fmt.Sprintf("<@%s> solved with a %d move solution", i.Member.User.ID, len(moves))
-	}
-	if tokensEarned > 0 {
-		content = fmt.Sprintf("%s +%d <:arena:917512583160930364>", content, tokensEarned)
-	}
-	if _, err := dg.ChannelMessageSend(i.ChannelID, content); err != nil {
-		log.Printf("Sending arena solution message: %v", err)
-		return err
+	// only print solve messages if there is not an active tournament
+	if instance.activeTournament == nil {
+		var content string
+		if isOptimal {
+			content = fmt.Sprintf("<@%s> solved with an :tada:**optimal**:tada: %d move solution", i.Member.User.ID, len(moves))
+		} else {
+			content = fmt.Sprintf("<@%s> solved with a %d move solution", i.Member.User.ID, len(moves))
+		}
+		if tokensEarned > 0 {
+			content = fmt.Sprintf("%s +%d <:arena:917512583160930364>", content, tokensEarned)
+		}
+		if _, err := dg.ChannelMessageSend(i.ChannelID, content); err != nil {
+			log.Printf("Sending arena solution message: %v", err)
+			return err
+		}
 	}
 
 	// look up linked arena account if exists

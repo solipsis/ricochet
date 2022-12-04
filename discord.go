@@ -91,24 +91,29 @@ func (s *server) handleSolve(dg *discordgo.Session, i *discordgo.InteractionCrea
 			},
 		)
 
-		if i.Interaction.Member != nil {
+		if i.Interaction.Member == nil {
+			return fmt.Errorf("User invoked solve in a DM? how did this happen?")
+		}
 
-			// extra stuff if on arena server
-			if i.Interaction.GuildID == ArenaServerID {
-				if err := arenaSolution(dg, i.Interaction, instance, s.db, moves); err != nil {
-					log.Printf("processing arena solution: %v", err)
-					return fmt.Errorf("processing arena solution: %v", err)
-				}
-			} else {
+		// extra stuff if on arena server
+		if i.Interaction.GuildID == ArenaServerID {
+			if err := arenaSolution(dg, i.Interaction, instance, s.db, moves); err != nil {
+				log.Printf("processing arena solution: %v", err)
+				return fmt.Errorf("processing arena solution: %v", err)
+			}
+		} else {
 
-				bestForUser := len(instance.solutionTracker.get(i.Interaction.Member.User.ID))
-				if bestForUser == 0 {
-					bestForUser = 999
-				}
-				if len(moves) < bestForUser {
-					instance.solutionTracker.set(i.Interaction.Member.User.ID, moves)
-				}
+			solutions := instance.getSolutions(instance.puzzleIdx)
+			bestForUser := len(solutions.get(i.Interaction.Member.User.ID))
+			if bestForUser == 0 {
+				bestForUser = 999
+			}
+			if len(moves) < bestForUser {
+				solutions.set(i.Interaction.Member.User.ID, moves)
+			}
 
+			// only print solution info if there is not an active tournament
+			if instance.activeTournament == nil {
 				var content string
 				if len(moves) == instance.activeGame.lenOptimalSolution {
 					content = fmt.Sprintf("<@%s> solved with an :tada:**optimal**:tada: %d move solution", i.Interaction.Member.User.ID, len(moves))
@@ -156,7 +161,7 @@ func (s *server) handleShare(dg *discordgo.Session, i *discordgo.InteractionCrea
 	// look up instance
 	instance := s.instances[i.GuildID]
 
-	currentMoves := instance.solutionTracker.get(i.Member.User.ID)
+	currentMoves := instance.getSolutions(instance.puzzleIdx).get(i.Member.User.ID)
 	if len(currentMoves) == 0 {
 		content := "You have not solved this puzzle"
 		_, err = dg.InteractionResponseEdit(i.Interaction,
@@ -299,7 +304,7 @@ func (s *server) handlePuzzle(dg *discordgo.Session, i *discordgo.InteractionCre
 	// haven't solved current puzzle
 	if instance.activeGame != nil {
 		//if instance.solutionTracker.numSubmitted() == 0
-		optimalFound := len(instance.solutionTracker.currentBest()) == instance.activeGame.lenOptimalSolution
+		optimalFound := len(instance.getSolutions(instance.puzzleIdx).currentBest()) == instance.activeGame.lenOptimalSolution
 		timePassed := time.Since(instance.puzzleTimestamp) > (time.Second * 60 * 5)
 		if !optimalFound && !timePassed {
 			content := "Current puzzle must be solved optimally or 5 minutes have passed before requesting a new one"
@@ -312,7 +317,17 @@ func (s *server) handlePuzzle(dg *discordgo.Session, i *discordgo.InteractionCre
 		}
 	}
 
-	// grab a game of the proper difficulty
+	// tournament already in progress
+	if instance.activeTournament != nil {
+		content := "There is currently a tournament in progress. You may only request a puzzle after it is over"
+		_, err := dg.InteractionResponseEdit(i.Interaction,
+			&discordgo.WebhookEdit{
+				Content: &content,
+			},
+		)
+		return err
+	}
+
 	var g *game
 	if len(i.Interaction.ApplicationCommandData().Options) == 0 {
 		g = <-s.categorizer.medium
@@ -331,8 +346,12 @@ func (s *server) handlePuzzle(dg *discordgo.Session, i *discordgo.InteractionCre
 		g.difficultyName = "medium"
 	}
 
+	if !s.isSearching {
+		go lookForSolutions(s)
+	}
+
 	instance.activeGame = g
-	instance.solutionTracker = &solutionTracker{}
+	//instance.solution = &solutionTracker{}
 	instance.puzzleTimestamp = time.Now()
 
 	var moveStrs []string
@@ -381,10 +400,6 @@ func (s *server) handlePuzzle(dg *discordgo.Session, i *discordgo.InteractionCre
 	if err != nil {
 		log.Printf("unable to respond to puzzle creation request: %v\n", err)
 		return fmt.Errorf("Editing response with puzzle: %v", err)
-	}
-
-	if !s.isSearching {
-		go lookForSolutions(s)
 	}
 
 	return nil
@@ -470,6 +485,10 @@ var slashCommands = []*discordgo.ApplicationCommand{
 	{
 		Name:        "how-to-play",
 		Description: "short tutorial on playing the game",
+	},
+	{
+		Name:        "tournament",
+		Description: "start a 3 puzzle timed tournament",
 	},
 }
 
