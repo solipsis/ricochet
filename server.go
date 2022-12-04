@@ -76,7 +76,7 @@ func (st *solutionTracker) users() []string {
 	defer st.lock.Unlock()
 
 	var users []string
-	fmt.Printf("users() submittedSolutions: %+v\n", st.submittedSolutions)
+	//fmt.Printf("users() submittedSolutions: %+v\n", st.submittedSolutions)
 	for k, _ := range st.submittedSolutions {
 		users = append(users, k)
 	}

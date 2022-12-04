@@ -489,6 +489,35 @@ var slashCommands = []*discordgo.ApplicationCommand{
 	{
 		Name:        "tournament",
 		Description: "start a 3 puzzle timed tournament",
+		Options: []*discordgo.ApplicationCommandOption{
+			{
+				Name:        "difficulty",
+				Description: "difficulty of tournament puzzles",
+				Type:        discordgo.ApplicationCommandOptionString,
+				Required:    true,
+				Choices: []*discordgo.ApplicationCommandOptionChoice{
+					{
+						Name:  "easy",
+						Value: "easy",
+					},
+					{
+						Name:  "medium",
+						Value: "medium",
+					},
+					{
+						Name:  "hard",
+						Value: "hard",
+					},
+				},
+			},
+			{
+				Name:        "duration",
+				Description: "how many minutes per puzzle (Min: 1, Max: 10)",
+				Type:        discordgo.ApplicationCommandOptionString,
+				Required:    true,
+				MaxValue:    10,
+			},
+		},
 	},
 }
 
