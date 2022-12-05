@@ -220,7 +220,27 @@ func (s *server) handleShare(dg *discordgo.Session, i *discordgo.InteractionCrea
 	}
 	sb.WriteString("||")
 
-	if _, err := dg.ChannelMessageSend(instance.channelID, sb.String()); err != nil {
+	// render solution to gif form
+	gif, err := renderGif(instance.activeGame, currentMoves)
+	if err != nil {
+		return fmt.Errorf("rendering solution gif: %v", err)
+	}
+	file := &discordgo.File{
+		Name:        "SPOILER_solution.gif", // spoiler prefix required
+		ContentType: "image/gif",
+		Reader:      &gif,
+	}
+
+	/*
+		if _, err := dg.ChannelMessageSend(instance.channelID, sb.String()); err != nil {
+			return fmt.Errorf("sending share string: %v", err)
+		}
+	*/
+	_, err = dg.ChannelMessageSendComplex(instance.channelID, &discordgo.MessageSend{
+		Content: sb.String(),
+		Files:   []*discordgo.File{file},
+	})
+	if err != nil {
 		return fmt.Errorf("sending share string: %v", err)
 	}
 

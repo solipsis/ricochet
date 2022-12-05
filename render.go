@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"image"
 	"image/png"
 	"log"
@@ -143,7 +142,7 @@ func pickRobot(r robot) image.Image {
 }
 
 func pickGoal(g Goal) image.Image {
-	fmt.Printf("goal: %d %c\n", g, g)
+	//fmt.Printf("goal: %d %c\n", g, g)
 
 	var fname string
 	switch g.id {
