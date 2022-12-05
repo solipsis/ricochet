@@ -12,6 +12,7 @@ import (
 	"math/rand"
 	"time"
 
+	"github.com/andybons/gogif"
 	"golang.org/x/image/draw"
 )
 
@@ -20,6 +21,9 @@ func renderGif(solvedGame *game, moves []move) {
 	g := &cpy
 
 	moveGif := gif.GIF{LoopCount: 0}
+
+	var images []draw.Image
+	var delays []int
 
 	// first frame
 	img, err := render(g)
@@ -70,13 +74,19 @@ func renderGif(solvedGame *game, moves []move) {
 		// start
 		boardWithOtherRobots := copyImg(boardImg)
 		drawRobots(g, m.id, boardWithOtherRobots)
+		//boardWithOtherRobots := image.NewNRGBA(image.Rect(0, 0, 16*16, 16*16))
+		robotImg := pickRobot(*g.robots[m.id])
 
 		cpy := copyImg(boardWithOtherRobots)
-
-		robotImg := pickRobot(*g.robots[m.id])
 		draw.Draw(cpy, image.Rect(startX, startY, startX+16, startY+16), robotImg, image.Point{}, draw.Over)
-		moveGif.Image = append(moveGif.Image, cpy)
-		moveGif.Delay = append(moveGif.Delay, 25)
+		images = append(images, cpy)
+		delays = append(delays, 20)
+		//frame := copyImg(boardWithOtherRobots)
+
+		/*
+			moveGif.Image = append(moveGif.Image, cpy)
+			moveGif.Delay = append(moveGif.Delay, 25)
+		*/
 
 		xDiff := endX - startX
 		yDiff := endY - startY
@@ -88,16 +98,36 @@ func renderGif(solvedGame *game, moves []move) {
 			interpX := (xDiff / (numSteps + 2)) * (step + 1)
 			interpY := (yDiff / (numSteps + 2)) * (step + 1)
 			draw.Draw(cpy, image.Rect(startX+interpX, startY+interpY, startX+interpX+16, startY+interpY+16), robotImg, image.Point{}, draw.Over)
-			moveGif.Image = append(moveGif.Image, cpy)
-			moveGif.Delay = append(moveGif.Delay, 5)
+
+			images = append(images, cpy)
+			delays = append(delays, 5)
 		}
+		//moveGif.Delay[len(moveGif.Delay)-1] = 30
 
 		// end
 		cpy = copyImg(boardWithOtherRobots)
 		draw.Draw(cpy, image.Rect(endX, endY, endX+16, endY+16), robotImg, image.Point{}, draw.Over)
-		moveGif.Image = append(moveGif.Image, cpy)
-		moveGif.Delay = append(moveGif.Delay, 25)
+		images = append(images, cpy)
+		delays = append(delays, 20)
 
+		/*
+			cpy = copyImg(boardWithOtherRobots)
+			draw.Draw(cpy, image.Rect(endX, endY, endX+16, endY+16), robotImg, image.Point{}, draw.Over)
+			moveGif.Image = append(moveGif.Image, cpy)
+			moveGif.Delay = append(moveGif.Delay, 25)
+		*/
+
+	}
+
+	quantizer := gogif.MedianCutQuantizer{NumColor: 64}
+
+	// convert to gif compatible images
+	for idx, img := range images {
+		dst := image.NewPaletted(image.Rect(0, 0, 16*16, 16*16), palette.WebSafe)
+		quantizer.Quantize(dst, dst.Bounds(), img, image.Point{})
+		//		draw.Draw(dst, dst.Bounds(), img, image.Point{}, draw.Over)
+		moveGif.Image = append(moveGif.Image, dst)
+		moveGif.Delay = append(moveGif.Delay, delays[idx])
 	}
 
 	var out bytes.Buffer
@@ -109,8 +139,8 @@ func renderGif(solvedGame *game, moves []move) {
 
 }
 
-func copyImg(img draw.Image) *image.Paletted {
-	dst := image.NewPaletted(img.Bounds(), palette.Plan9)
+func copyImg(img draw.Image) draw.Image {
+	dst := image.NewNRGBA(image.Rect(0, 0, 16*16, 16*16))
 	draw.Draw(dst, img.Bounds(), img, image.Point{}, draw.Over)
 	return dst
 }
@@ -135,8 +165,8 @@ func drawRobots(g *game, ignore byte, dst draw.Image) {
 // renders board + goal but no robots
 func renderGifBoard(g *game) (draw.Image, error) {
 
-	//dst := image.NewNRGBA(image.Rect(0, 0, 16*16, 16*16))
-	dst := image.NewPaletted(image.Rect(0, 0, 16*16, 16*16), palette.Plan9)
+	dst := image.NewNRGBA(image.Rect(0, 0, 16*16, 16*16))
+	//dst := image.NewPaletted(image.Rect(0, 0, 16*16, 16*16), palette.Plan9)
 	// one row at a time
 	for row := 0; row < g.size; row += 1 {
 		for col := 0; col < g.size; col += 1 {

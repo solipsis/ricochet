@@ -10,6 +10,7 @@ require (
 )
 
 require (
+	github.com/andybons/gogif v0.0.0-20140526152223-16d573594812 // indirect
 	github.com/gorilla/websocket v1.4.2 // indirect
 	github.com/jackc/chunkreader/v2 v2.0.1 // indirect
 	github.com/jackc/pgconn v1.13.0 // indirect
