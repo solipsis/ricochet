@@ -273,7 +273,7 @@ func (s *server) handleHelp(dg *discordgo.Session, i *discordgo.InteractionCreat
 
 	// respond
 	var sb strings.Builder
-	sb.WriteString("**Ricochet-Robotbot** v0.0.2\n")
+	sb.WriteString("**Ricochet-Robotbot** v0.0.3\n")
 	sb.WriteString("----------------------------\n\n")
 	sb.WriteString("**Commands**:\n")
 	sb.WriteString("  **/puzzle**: Generate a new puzzle to solve\n")
@@ -281,7 +281,7 @@ func (s *server) handleHelp(dg *discordgo.Session, i *discordgo.InteractionCreat
 	sb.WriteString("  **/share**: Share your solution to the current puzzle\n")
 	sb.WriteString("  **/how-to-play**: Additional explanation of game rules\n")
 	sb.WriteString("\n**Coming Soon**:\n")
-	sb.WriteString("- Competitive Mode\n")
+	sb.WriteString("- Load specific puzzles\n")
 	sb.WriteString("- More Boards\n")
 	sb.WriteString("- Rules Variants\n")
 	sb.WriteString("\n**How to Play**:\n")

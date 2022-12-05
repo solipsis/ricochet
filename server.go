@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"os"
@@ -109,7 +110,7 @@ func (s *server) run() {
 	s.instances = make(map[string]*discordInstance)
 
 	discordToken := os.Getenv("RICOCHET_DISCORD_TOKEN") // PROD
-	//	discordToken := os.Getenv("RICOCHET_DEV_DISCORD_TOKEN") //dev
+	//discordToken := os.Getenv("RICOCHET_DEV_DISCORD_TOKEN") //dev
 	if discordToken == "" {
 		log.Fatal("Missing required env: RICOCHET_DISCORD_TOKEN")
 	}
