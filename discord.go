@@ -280,6 +280,7 @@ func (s *server) handleHelp(dg *discordgo.Session, i *discordgo.InteractionCreat
 	sb.WriteString("  **/solve**: Submit a solution to the current puzzle\n")
 	sb.WriteString("  **/share**: Share your solution to the current puzzle\n")
 	sb.WriteString("  **/how-to-play**: Additional explanation of game rules\n")
+	sb.WriteString("  **/tournament**: Start a 3 puzzle timed tournament\n")
 	sb.WriteString("\n**Coming Soon**:\n")
 	sb.WriteString("- Load specific puzzles\n")
 	sb.WriteString("- More Boards\n")

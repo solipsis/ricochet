@@ -135,6 +135,19 @@ func (s *server) handleTournament(dg *discordgo.Session, i *discordgo.Interactio
 		)
 		return fmt.Errorf("creating tournament: %v", err)
 	}
+
+	// finish initial acked response
+	content := "Tournament Created"
+	_, err = dg.InteractionResponseEdit(i.Interaction,
+		&discordgo.WebhookEdit{
+			Content: &content,
+		},
+	)
+	if err != nil {
+		fmt.Errorf("tournament success ack: %v", err)
+	}
+
+	// sleep until its time for the puzzles to start
 	time.Sleep(tournamentStartTime)
 
 	// serve 3 puzzles one at a time
