@@ -42,22 +42,17 @@ func renderGif(solvedGame *game, moves []move) {
 	// get keyframe == state sans robot we are moving
 	// draw robot and start + x discrete steps + end
 
+	boardImg, err := renderGifBoard(g)
+	if err != nil {
+		panic(err)
+	}
+
 	rand.Seed(time.Now().UnixNano())
 	for _, m := range moves {
 		fmt.Println("M:", m.String())
 
+		// move robot
 		startPos := g.robots[m.id].position
-
-		// toggle off the robot we are moving and then render without it
-		//g.board[startPos] = g.board[startPos] &^ square(ROBOT)
-
-		keyframe, err := renderGifFrame(g, m.id)
-		if err != nil {
-			panic(err)
-		}
-
-		// toggle robot back on and move
-		//g.board[startPos] = g.board[startPos] | square(ROBOT)
 		g.move(g.robots[m.id], m.dir)
 		endPos := g.robots[m.id].position
 
@@ -73,7 +68,11 @@ func renderGif(solvedGame *game, moves []move) {
 		endY := int(endRow * 16)
 
 		// start
-		cpy := copyImg(keyframe)
+		boardWithOtherRobots := copyImg(boardImg)
+		drawRobots(g, m.id, boardWithOtherRobots)
+
+		cpy := copyImg(boardWithOtherRobots)
+
 		robotImg := pickRobot(*g.robots[m.id])
 		draw.Draw(cpy, image.Rect(startX, startY, startX+16, startY+16), robotImg, image.Point{}, draw.Over)
 		moveGif.Image = append(moveGif.Image, cpy)
@@ -83,9 +82,9 @@ func renderGif(solvedGame *game, moves []move) {
 		yDiff := endY - startY
 
 		// middle frames
-		numSteps := 5
+		numSteps := 3
 		for step := 0; step < numSteps; step++ {
-			cpy := copyImg(keyframe)
+			cpy := copyImg(boardWithOtherRobots)
 			interpX := (xDiff / (numSteps + 2)) * (step + 1)
 			interpY := (yDiff / (numSteps + 2)) * (step + 1)
 			draw.Draw(cpy, image.Rect(startX+interpX, startY+interpY, startX+interpX+16, startY+interpY+16), robotImg, image.Point{}, draw.Over)
@@ -94,7 +93,7 @@ func renderGif(solvedGame *game, moves []move) {
 		}
 
 		// end
-		cpy = copyImg(keyframe)
+		cpy = copyImg(boardWithOtherRobots)
 		draw.Draw(cpy, image.Rect(endX, endY, endX+16, endY+16), robotImg, image.Point{}, draw.Over)
 		moveGif.Image = append(moveGif.Image, cpy)
 		moveGif.Delay = append(moveGif.Delay, 25)
@@ -111,12 +110,58 @@ func renderGif(solvedGame *game, moves []move) {
 }
 
 func copyImg(img draw.Image) *image.Paletted {
-
 	dst := image.NewPaletted(img.Bounds(), palette.Plan9)
 	draw.Draw(dst, img.Bounds(), img, image.Point{}, draw.Over)
 	return dst
 }
 
+func drawRobots(g *game, ignore byte, dst draw.Image) {
+	fmt.Println("startRobots")
+	for _, r := range g.robots {
+		if r.id == ignore {
+			continue
+		}
+		robotImg := pickRobot(*r)
+		row := r.position / 16
+		col := r.position % 16
+
+		x := int(col * 16)
+		y := int(row * 16)
+		draw.Draw(dst, image.Rect(x, y, x+16, y+16), robotImg, image.Point{}, draw.Over)
+	}
+	fmt.Println("endRobots")
+}
+
+// renders board + goal but no robots
+func renderGifBoard(g *game) (draw.Image, error) {
+
+	//dst := image.NewNRGBA(image.Rect(0, 0, 16*16, 16*16))
+	dst := image.NewPaletted(image.Rect(0, 0, 16*16, 16*16), palette.Plan9)
+	// one row at a time
+	for row := 0; row < g.size; row += 1 {
+		for col := 0; col < g.size; col += 1 {
+			sq := g.board[row*g.size+col]
+			tile := pickTile(sq)
+
+			x := (col * 16)
+			y := (row * 16)
+			draw.Draw(dst, image.Rect(x, y, x+16, y+16), tile, image.Point{}, draw.Over)
+		}
+	}
+
+	// draw goal
+	goalImg := pickGoal(g.activeGoal)
+	row := g.activeGoal.position / 16
+	col := g.activeGoal.position % 16
+
+	x := int(col * 16)
+	y := int(row * 16)
+	draw.Draw(dst, image.Rect(x, y, x+16, y+16), goalImg, image.Point{}, draw.Over)
+
+	return dst, nil
+}
+
+/*
 func renderGifFrame(g *game, ignore byte) (draw.Image, error) {
 
 	dst := image.NewNRGBA(image.Rect(0, 0, 16*16, 16*16))
@@ -163,3 +208,4 @@ func renderGifFrame(g *game, ignore byte) (draw.Image, error) {
 
 	return dst, nil
 }
+*/
