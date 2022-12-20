@@ -292,7 +292,7 @@ var slashCommands = []*discordgo.ApplicationCommand{
 			},
 			{
 				Name:        "puzzle_id",
-				Description: "submit an answer for a specific puzzle. If left blank it will submit for the currently active puzzle",
+				Description: "submit an answer for a puzzle. If left blank it will submit for the currently active puzzle",
 				Type:        discordgo.ApplicationCommandOptionString,
 				Required:    false,
 			},
@@ -308,7 +308,7 @@ var slashCommands = []*discordgo.ApplicationCommand{
 		Options: []*discordgo.ApplicationCommandOption{
 			{
 				Name:        "puzzle_id",
-				Description: "share your solution for a specific puzzle. If left blank it will share your solution to the current active puzzle",
+				Description: "share your solution for a puzzle. If blank it will share your solution to the current puzzle",
 				Type:        discordgo.ApplicationCommandOptionString,
 				Required:    false,
 			},
