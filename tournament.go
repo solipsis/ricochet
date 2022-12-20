@@ -32,7 +32,7 @@ type tournament struct {
 
 type tournamentGame struct {
 	g     *game
-	id    int
+	id    string
 	index int
 }
 
@@ -93,7 +93,7 @@ func (s *server) handleTournament(dg *discordgo.Session, i *discordgo.Interactio
 
 	// haven't solved current puzzle
 	if instance.activeGame != nil {
-		optimalFound := len(instance.getSolutions(instance.puzzleIdx).currentBest()) == instance.activeGame.lenOptimalSolution
+		optimalFound := len(instance.getSolutions(instance.activeGame.id).currentBest()) == instance.activeGame.lenOptimalSolution
 		timePassed := time.Since(instance.puzzleTimestamp) > (time.Second * 60 * 5)
 		if !optimalFound && !timePassed {
 			content := "Current puzzle must be solved optimally or 5 minutes have passed before requesting a new one"
@@ -204,7 +204,7 @@ func (s *server) handleTournament(dg *discordgo.Session, i *discordgo.Interactio
 			Reader:      &buf,
 		}
 
-		tg := tournamentGame{g: instance.activeGame, id: instance.puzzleIdx, index: x}
+		tg := tournamentGame{g: instance.activeGame, id: instance.activeGame.id, index: x}
 		instance.activeTournament.games = append(instance.activeTournament.games, tg)
 		_, err = dg.ChannelMessageSendComplex(instance.channelID, &discordgo.MessageSend{
 			Content: tournamentPuzzleContent(i.Interaction.Member, tg, time.Now().Add(time.Second*60*time.Duration(durationMinutes))),
@@ -349,7 +349,7 @@ func tournamentPuzzleContent(member *discordgo.Member, tg tournamentGame, endTim
 
 	var sb strings.Builder
 	sb.WriteString(fmt.Sprintf("`-------------------------------------------------`\n"))
-	sb.WriteString(fmt.Sprintf("**Tournament Puzzle #%d** -- ", tg.index+1))
+	sb.WriteString(fmt.Sprintf("**Tournament Puzzle %d: #%s** -- %s\n", tg.index+1, tg.g.id, tg.g.difficulty))
 	sb.WriteString(fmt.Sprintf("Time Remaining: **<t:%d:R>**", endTime.Unix()))
 
 	return sb.String()

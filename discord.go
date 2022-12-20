@@ -36,226 +36,8 @@ func findChannel(dg *discordgo.Session, guildID string) (*discordgo.Channel, err
 	return nil, nil
 }
 
-func (s *server) handleSolve(dg *discordgo.Session, i *discordgo.InteractionCreate) error {
-	err := dg.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Flags: 1 << 6, // ephemeral
-		},
-	})
-	if err != nil {
-		return fmt.Errorf("responding solve ack: %v", err)
-	}
-
-	// parse user moves
-	if len(i.Interaction.ApplicationCommandData().Options) == 0 {
-		return fmt.Errorf("No moves provided to /solve: %v", i)
-	}
-	moveStr := i.Interaction.ApplicationCommandData().Options[0].Value
-	moves, err := parseMoves(moveStr.(string))
-	if err != nil {
-		content := fmt.Sprintf("'%s' is not a valid move format. Please see **/help**", moveStr)
-		_, err = dg.InteractionResponseEdit(i.Interaction,
-			&discordgo.WebhookEdit{
-				Content: &content,
-			},
-		)
-		if err != nil {
-			return fmt.Errorf("Failed to respond with invalid moves: %v", err)
-		}
-		return nil
-	}
-
-	// look up instance
-	instance := s.instances[i.GuildID]
-
-	if instance.activeGame == nil {
-		content := fmt.Sprintf("There is no active puzzle. Please use **/puzzle** to create one")
-		_, err = dg.InteractionResponseEdit(i.Interaction,
-			&discordgo.WebhookEdit{
-				Content: &content,
-			},
-		)
-		return nil
-	}
-
-	// validate solution
-	success := validate(instance.activeGame, instance.activeGame.board, moves, instance.activeGame.activeGoal)
-	var content string
-	if success {
-
-		content = fmt.Sprintf(":white_check_mark: Puzzle Solved: %s", moveStr)
-		_, err = dg.InteractionResponseEdit(i.Interaction,
-			&discordgo.WebhookEdit{
-				Content: &content,
-			},
-		)
-
-		if i.Interaction.Member == nil {
-			return fmt.Errorf("User invoked solve in a DM? how did this happen?")
-		}
-
-		// extra stuff if on arena server
-		if i.Interaction.GuildID == ArenaServerID {
-			if err := arenaSolution(dg, i.Interaction, instance, s.db, moves); err != nil {
-				log.Printf("processing arena solution: %v", err)
-				return fmt.Errorf("processing arena solution: %v", err)
-			}
-		} else {
-
-			solutions := instance.getSolutions(instance.puzzleIdx)
-			bestForUser := len(solutions.get(i.Interaction.Member.User.ID))
-			if bestForUser == 0 {
-				bestForUser = 999
-			}
-			if len(moves) < bestForUser {
-				solutions.set(i.Interaction.Member.User.ID, moves)
-			}
-
-			// only print solution info if there is not an active tournament
-			if instance.activeTournament == nil {
-				var content string
-				if len(moves) == instance.activeGame.lenOptimalSolution {
-					content = fmt.Sprintf("<@%s> solved with an :tada:**optimal**:tada: %d move solution", i.Interaction.Member.User.ID, len(moves))
-				} else {
-					content = fmt.Sprintf("<@%s> solved with a %d move solution", i.Interaction.Member.User.ID, len(moves))
-				}
-				dg.ChannelMessageSend(i.Interaction.ChannelID, content)
-			}
-		}
-
-	} else {
-		content = fmt.Sprintf(":x: %s is not a valid solution to this puzzle", moveStr)
-		_, err = dg.InteractionResponseEdit(i.Interaction,
-			&discordgo.WebhookEdit{
-				Content: &content,
-			},
-		)
-	}
-	if err != nil {
-		log.Printf("unable to print puzzle: %v\n", err)
-		return fmt.Errorf("Editing response with puzzle: %v", err)
-	}
-
-	//spew.Dump(i.ApplicationCommandData())
-	return nil
-}
-
 func (s *server) handleHowToPlay(dg *discordgo.Session, i *discordgo.InteractionCreate) error {
 	return s.handleHelp(dg, i)
-}
-
-func (s *server) handleShare(dg *discordgo.Session, i *discordgo.InteractionCreate) error {
-	// ack
-	err := dg.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Flags: 1 << 6, // ephemeral
-		},
-	})
-	if err != nil {
-		log.Printf("responding help ack: %v\n", err)
-		return fmt.Errorf("respoding help ack: %v", err)
-	}
-
-	// look up instance
-	instance := s.instances[i.GuildID]
-
-	// no puzzle active
-	if instance.activeGame == nil {
-		content := "There is no active puzzle"
-		_, err = dg.InteractionResponseEdit(i.Interaction,
-			&discordgo.WebhookEdit{
-				Content: &content,
-			},
-		)
-		if err != nil {
-			return fmt.Errorf("sending no active puzzle response: %v", err)
-		}
-		return nil
-	}
-
-	currentMoves := instance.getSolutions(instance.puzzleIdx).get(i.Member.User.ID)
-	if len(currentMoves) == 0 {
-		content := "You have not solved this puzzle"
-		_, err = dg.InteractionResponseEdit(i.Interaction,
-			&discordgo.WebhookEdit{
-				Content: &content,
-			},
-		)
-		if err != nil {
-			return fmt.Errorf("sending help response: %v", err)
-		}
-		return nil
-	}
-
-	// build answer string
-	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("<@%s> used **/share**\n||", i.Member.User.ID))
-	for idx, m := range currentMoves {
-		switch m.id {
-		case 'R':
-			sb.WriteString(":red_circle:")
-		case 'B':
-			sb.WriteString(":blue_circle:")
-		case 'G':
-			sb.WriteString(":green_circle:")
-		case 'Y':
-			sb.WriteString(":yellow_circle:")
-		}
-		switch m.dir {
-		case UP:
-			sb.WriteString(":arrow_up:")
-		case DOWN:
-			sb.WriteString(":arrow_down:")
-		case LEFT:
-			sb.WriteString(":arrow_left:")
-		case RIGHT:
-			sb.WriteString(":arrow_right:")
-		}
-
-		if idx != len(currentMoves)-1 {
-			sb.WriteString(" - ")
-		}
-	}
-	sb.WriteString("||")
-
-	// render solution to gif form
-	gif, err := renderGif(instance.activeGame, currentMoves)
-	if err != nil {
-		return fmt.Errorf("rendering solution gif: %v", err)
-	}
-	file := &discordgo.File{
-		Name:        "SPOILER_solution.gif", // spoiler prefix required
-		ContentType: "image/gif",
-		Reader:      &gif,
-	}
-
-	/*
-		if _, err := dg.ChannelMessageSend(instance.channelID, sb.String()); err != nil {
-			return fmt.Errorf("sending share string: %v", err)
-		}
-	*/
-	_, err = dg.ChannelMessageSendComplex(instance.channelID, &discordgo.MessageSend{
-		Content: sb.String(),
-		Files:   []*discordgo.File{file},
-	})
-	if err != nil {
-		return fmt.Errorf("sending share string: %v", err)
-	}
-
-	// edit original response
-	content := "Solution shared"
-	_, err = dg.InteractionResponseEdit(i.Interaction,
-		&discordgo.WebhookEdit{
-			Content: &content,
-		},
-	)
-	if err != nil {
-		return fmt.Errorf("editing original share response: %v", err)
-	}
-
-	return nil
 }
 
 func (s *server) handleHelp(dg *discordgo.Session, i *discordgo.InteractionCreate) error {
@@ -340,7 +122,7 @@ func (s *server) handlePuzzle(dg *discordgo.Session, i *discordgo.InteractionCre
 	// haven't solved current puzzle
 	if instance.activeGame != nil {
 		//if instance.solutionTracker.numSubmitted() == 0
-		optimalFound := len(instance.getSolutions(instance.puzzleIdx).currentBest()) == instance.activeGame.lenOptimalSolution
+		optimalFound := len(instance.getSolutions(instance.activeGame.id).currentBest()) == instance.activeGame.lenOptimalSolution
 		timePassed := time.Since(instance.puzzleTimestamp) > (time.Second * 60 * 5)
 		if !optimalFound && !timePassed {
 			content := "Current puzzle must be solved optimally or 5 minutes have passed before requesting a new one"
@@ -367,19 +149,19 @@ func (s *server) handlePuzzle(dg *discordgo.Session, i *discordgo.InteractionCre
 	var g *game
 	if len(i.Interaction.ApplicationCommandData().Options) == 0 {
 		g = <-s.categorizer.medium
-		g.difficultyName = "medium"
+		g.difficulty = MEDIUM
 	} else if i.Interaction.ApplicationCommandData().Options[0].Value == "easy" {
 		g = <-s.categorizer.easy
-		g.difficultyName = "easy"
+		g.difficulty = EASY
 	} else if i.Interaction.ApplicationCommandData().Options[0].Value == "medium" {
 		g = <-s.categorizer.medium
-		g.difficultyName = "medium"
+		g.difficulty = MEDIUM
 	} else if i.Interaction.ApplicationCommandData().Options[0].Value == "hard" {
 		g = <-s.categorizer.hard
-		g.difficultyName = "hard"
+		g.difficulty = HARD
 	} else {
 		g = <-s.categorizer.medium
-		g.difficultyName = "medium"
+		g.difficulty = MEDIUM
 	}
 
 	if !s.isSearching {
@@ -414,7 +196,7 @@ func (s *server) handlePuzzle(dg *discordgo.Session, i *discordgo.InteractionCre
 	}
 
 	_, err = dg.ChannelMessageSendComplex(instance.channelID, &discordgo.MessageSend{
-		Content: puzzleContent(instance.puzzleIdx, i.Interaction.Member, instance.activeGame),
+		Content: puzzleContent(i.Interaction.Member, instance.activeGame),
 		Files:   []*discordgo.File{file},
 	})
 	if err != nil {
@@ -441,7 +223,7 @@ func (s *server) handlePuzzle(dg *discordgo.Session, i *discordgo.InteractionCre
 	return nil
 }
 
-func puzzleContent(num int, member *discordgo.Member, g *game) string {
+func puzzleContent(member *discordgo.Member, g *game) string {
 
 	var displayName string
 	if member.Nick != "" {
@@ -452,7 +234,7 @@ func puzzleContent(num int, member *discordgo.Member, g *game) string {
 
 	var sb strings.Builder
 	sb.WriteString(fmt.Sprintf("%s used **/puzzle**\n", displayName))
-	sb.WriteString(fmt.Sprintf("**Puzzle #%d** -- %s\n", num, g.difficultyName))
+	sb.WriteString(fmt.Sprintf("**Puzzle:** #__%s__ -- %s\n", g.id, g.difficulty))
 
 	var color string
 	switch g.activeGoal.id {
@@ -508,6 +290,12 @@ var slashCommands = []*discordgo.ApplicationCommand{
 				Type:        discordgo.ApplicationCommandOptionString,
 				Required:    true,
 			},
+			{
+				Name:        "puzzle_id",
+				Description: "submit an answer for a specific puzzle. If left blank it will submit for the currently active puzzle",
+				Type:        discordgo.ApplicationCommandOptionString,
+				Required:    false,
+			},
 		},
 	},
 	{
@@ -517,6 +305,14 @@ var slashCommands = []*discordgo.ApplicationCommand{
 	{
 		Name:        "share",
 		Description: "share your solution to the current problem",
+		Options: []*discordgo.ApplicationCommandOption{
+			{
+				Name:        "puzzle_id",
+				Description: "share your solution for a specific puzzle. If left blank it will share your solution to the current active puzzle",
+				Type:        discordgo.ApplicationCommandOptionString,
+				Required:    false,
+			},
+		},
 	},
 	{
 		Name:        "how-to-play",

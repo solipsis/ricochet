@@ -9,7 +9,9 @@ func validate(g *game, board []square, moves []move, goal Goal) bool {
 	cpy := g.clone()
 
 	// do all moves
+	//	fmt.Println(printBoard(cpy.board, cpy.size, cpy.robots, cpy.activeGoal))
 	for _, m := range moves {
+		//		fmt.Println(printBoard(cpy.board, cpy.size, cpy.robots, cpy.activeGoal))
 		cpy.move(cpy.robots[m.id], m.dir)
 	}
 

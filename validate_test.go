@@ -30,7 +30,8 @@ func TestValidate(t *testing.T) {
 |         G |
 •---•---•---•`
 
-	g := parseBoard(input)
+	// TODO: redesign parse params
+	g := parseBoard(input, []int{1, 2, 3, 0})
 	printBoard(g.board, g.size, g.robots, g.activeGoal)
 
 	moves, err := parseMoves("GL-BD-BL-RR-RR-RD")
@@ -42,8 +43,9 @@ func TestValidate(t *testing.T) {
 }
 
 func TestBroken(t *testing.T) {
-	g := parseBoard(debugBoard)
-	g.optimalMoves = g.preCompute(g.activeGoal.position)
+	// TODO: redesign parse params
+	g := parseBoard(debugBoard, []int{1, 2, 3, 0})
+	g.precomputedMoves = g.preCompute(g.activeGoal.position)
 	g.activeRobot = g.robots['B']
 	fmt.Println(printBoard(g.board, g.size, g.robots, g.activeGoal))
 	res := g.solve(9)
@@ -60,7 +62,7 @@ func TestExtreme(t *testing.T) {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				g := parseBoard(extremeBoard)
+				g := parseBoard(extremeBoard, []int{1, 2, 3, 0})
 				rand.Seed(time.Now().UnixNano())
 				goalIdx := rand.Intn(len(g.goals))
 				g.activeGoal = g.goals[goalIdx]
@@ -92,7 +94,7 @@ func TestExtreme(t *testing.T) {
 						}
 					}
 				}
-				g.optimalMoves = g.preCompute(g.activeGoal.position)
+				g.precomputedMoves = g.preCompute(g.activeGoal.position)
 				res := g.solve(20)
 				fmt.Println(res)
 			}()
@@ -108,7 +110,28 @@ func TestRandomGame(t *testing.T) {
 	g := randomGame()
 	printBoard(g.board, g.size, g.robots, g.activeGoal)
 
-	g.optimalMoves = g.preCompute(g.activeGoal.position)
+	g.precomputedMoves = g.preCompute(g.activeGoal.position)
 	res := g.solve(15)
 	fmt.Println(res)
+	g.countRobotBits()
+
+	enc, err := encode(g)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	fmt.Println("---------------------------------------------")
+
+	dec, err := decode(enc)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	moves, err := parseMoves(res)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	validate(dec, dec.board, moves, dec.activeGoal)
+
 }

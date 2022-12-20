@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"math/rand"
 	"strings"
 )
@@ -43,16 +44,35 @@ var fullBoard = `
 var topHalfs = []string{blueYellowHalf1, blueYellowHalf2, blueYellowHalf3, blueYellowHalf4}
 var bottomHalfs = []string{redGreenHalf1, redGreenHalf2, redGreenHalf3, redGreenHalf4}
 
-func randomBoard() string {
+func boardFromQuadrants(tl, tr, bl, br int) (string, error) {
+	if tl >= len(blueQuandrants) || tr >= len(yellowQuandrants) || bl >= len(redQuandrants) || br >= len(greenQuandrants) {
+		return "", fmt.Errorf("invalid quadrants")
+	}
+
+	q1 := blueQuandrants[tl]
+	q2 := yellowQuandrants[tr]
+	q3 := redQuandrants[bl]
+	q4 := greenQuandrants[br]
+
+	stitched := stitchQuandrants(q1, q2, q3, q4)
+	return strings.TrimSpace(stitched), nil
+}
+
+func randomBoard() (string, []int) {
 	//	top := strings.TrimSpace(topHalfs[rand.Intn(len(topHalfs))])
 	//	bot := strings.TrimSpace(bottomHalfs[rand.Intn(len(bottomHalfs))])
-	tl := blueQuandrants[rand.Intn(len(blueQuandrants))]
-	tr := yellowQuandrants[rand.Intn(len(yellowQuandrants))]
-	bl := redQuandrants[rand.Intn(len(redQuandrants))]
-	br := greenQuandrants[rand.Intn(len(greenQuandrants))]
+	tlIdx := rand.Intn(len(blueQuandrants))
+	trIdx := rand.Intn(len(yellowQuandrants))
+	blIdx := rand.Intn(len(redQuandrants))
+	brIdx := rand.Intn(len(greenQuandrants))
+
+	tl := blueQuandrants[tlIdx]
+	tr := yellowQuandrants[trIdx]
+	bl := redQuandrants[blIdx]
+	br := greenQuandrants[brIdx]
 
 	stitched := stitchQuandrants(tl, tr, bl, br)
-	return strings.TrimSpace(stitched)
+	return strings.TrimSpace(stitched), []int{tlIdx, trIdx, blIdx, brIdx}
 
 	//return fmt.Sprintf("%s\n%s", top, bot)
 }
@@ -611,6 +631,41 @@ var extremeBoard = `
 |   |         r                               r                 |
 •   •---•   •   •   •   •---•   •   •---•   •   •   •   •   •   •
 |                           |           |                       |
+•   •   •   •   •   •   •   •   •   •   •   •   •   •   •   •   •
+|                   |                           |               |
+•---•---•---•---•---•---•---•---•---•---•---•---•---•---•---•---•`
+
+var blank = `
+•---•---•---•---•---•---•---•---•---•---•---•---•---•---•---•---•
+|                   |                   |                       |
+•   •   •   •   •   •   •   •   •   •   •   •   •---•   •   •   •
+|                         y |                   | r             |
+•   •---•   •   •   •   •---•   •   •   •   •   •   •   •   •---•
+|   | g                                                         |
+•   •   •   •   •   •   •   •   •   •   •   •   •   •   •   •   •
+|                                   | b                         |
+•   •   •   •   •   •   •   •   •   •---•   •   •   •   •   •   •
+|                                                         g |   |
+•   •   •   •   •   •   •---•   •   •   •---•   •   •   •---•   •
+|                         b |             y |                   |
+•---•   •   •   •   •   •   •   •   •   •   •   •   •   •   •   •
+|           | r                                                 |
+•   •   •   •---•   •   •   •---•---•   •   •   •   •   •   •   •
+|                           |       |                           |
+•   •   •   •   •   •   •   •   •   •   •   •   •   •   •   •   •
+|                           |       |                           |
+•   •   •   •   •   •   •   •---•---•   •   •   •   •   •   •---•
+|             b |                                               |
+•   •   •   •---•   •   •   •   •---•   •   •   •   •---•   •   •
+|                                   |               | r         |
+•---•   •   •   •   •---•   •   •   •   •   •   •   •   •   •   •
+|                   | r                   g |                   |
+•   •   •   •   •   •   •   •   •   •   •---•   •   •   •   •   •
+|                                                       | y     |
+•   •   •   •   •   •   •   •   •   •   •   •   •   •   •---•   •
+|   | y                                                         |
+•   •---•   •   •   •   •---•   •   •---•   •   •   •   •   •   •
+|                         g |         b |                       |
 •   •   •   •   •   •   •   •   •   •   •   •   •   •   •   •   •
 |                   |                           |               |
 •---•---•---•---•---•---•---•---•---•---•---•---•---•---•---•---•`

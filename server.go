@@ -33,15 +33,15 @@ type discordInstance struct {
 	puzzleTimestamp time.Time
 
 	// TODO: this grows unbounded. Need to remove entries at some point
-	solutions    map[int]*solutionTracker
+	solutions    map[string]*solutionTracker
 	solutionLock sync.RWMutex
 }
 
-func (di *discordInstance) getSolutions(id int) *solutionTracker {
+func (di *discordInstance) getSolutions(id string) *solutionTracker {
 	di.solutionLock.Lock()
 	defer di.solutionLock.Unlock()
 	if di.solutions == nil {
-		di.solutions = make(map[int]*solutionTracker)
+		di.solutions = make(map[string]*solutionTracker)
 	}
 
 	tracker := di.solutions[id]
@@ -257,68 +257,6 @@ func (s *server) run() {
 	}
 
 	// listen for discord events
-}
-
-func lookForSolutions(s *server) {
-	s.isSearching = true // not thread-safe but probably will never matter
-	var wg sync.WaitGroup
-	for x := 0; x < 4; x++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-
-			for {
-				if len(s.categorizer.easy) == gameBuffer && len(s.categorizer.medium) == gameBuffer && len(s.categorizer.hard) == gameBuffer {
-					break
-				}
-
-				rg := randomGame()
-				rg.optimalMoves = rg.preCompute(rg.activeGoal.position)
-				res := rg.solve(20)
-				moves, _ := parseMoves(res)
-				numMoves := len(moves)
-				rg.lenOptimalSolution = numMoves
-
-				// Add solution to proper buffer. Discard if that buffer already has enough solutions
-				// of that length
-				if numMoves >= 6 && numMoves <= 8 {
-					select {
-					case s.categorizer.easy <- rg:
-						fmt.Println("Easy found:")
-					default:
-						//			fmt.Println("discarding easy")
-					}
-				} else if numMoves >= 9 && numMoves <= 12 {
-					select {
-					case s.categorizer.medium <- rg:
-						fmt.Println("Medium found:")
-					default:
-						//			fmt.Println("discarding medium")
-					}
-				} else if numMoves >= 13 && numMoves <= 16 {
-					select {
-					case s.categorizer.hard <- rg:
-						fmt.Println("Hard found:", numMoves)
-					default:
-						fmt.Println("Hard found:", numMoves)
-						//			fmt.Println("discarding hard")
-					}
-				} else if numMoves >= 17 && numMoves <= 20 {
-					fmt.Println("EXTREME found:", numMoves)
-					select {
-					case s.categorizer.extreme <- rg:
-						fmt.Println("EXTREME found:", numMoves)
-					default:
-						//			fmt.Println("discarding hard")
-					}
-				}
-
-			}
-		}()
-	}
-	wg.Wait()
-	s.isSearching = false
-
 }
 
 func (s *server) servePuzzle(difficulty string) *game {

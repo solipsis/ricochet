@@ -12,14 +12,16 @@ import (
 	"github.com/jackc/pgx/v4/pgxpool"
 )
 
-func tokenReward(difficulty string) int {
-	switch difficulty {
-	case "easy":
+func tokenReward(diff difficulty) int {
+	switch diff {
+	case EASY:
 		return 10
-	case "medium":
+	case MEDIUM:
 		return 15
-	case "hard":
+	case HARD:
 		return 20
+	case EXTREME:
+		return 30
 	default:
 		return 0
 	}
@@ -70,18 +72,23 @@ func addSolveRewardLedgerEntry(conn *pgxpool.Pool, userID string, amount int) er
 
 func arenaSolution(dg *discordgo.Session, i *discordgo.Interaction, instance *discordInstance, db *pgxpool.Pool, moves []move) error {
 
-	currentSolutions := instance.getSolutions(instance.puzzleIdx)
+	activeGame := instance.activeGame
+	id, err := encode(activeGame)
+	if err != nil {
+		return fmt.Errorf("encoding solution game: %v", err)
+	}
+	currentSolutions := instance.getSolutions(id)
 
 	firstSolve := currentSolutions.numSubmitted() == 0
 	isOptimal := len(moves) == instance.activeGame.lenOptimalSolution
 	tokensEarned := 0
 	if firstSolve {
-		tokensEarned += tokenReward(instance.activeGame.difficultyName)
+		tokensEarned += tokenReward(instance.activeGame.difficulty)
 	}
 	if isOptimal {
 		// bonus points if first optimal solution
 		if currentSolutions.numSubmitted() == 0 || len(moves) < len(currentSolutions.currentBest()) {
-			tokensEarned += tokenReward(instance.activeGame.difficultyName)
+			tokensEarned += tokenReward(instance.activeGame.difficulty)
 		}
 	}
 

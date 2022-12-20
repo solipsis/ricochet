@@ -9,7 +9,7 @@ import (
 func TestRenderGif(t *testing.T) {
 	g := randomGame()
 
-	g.optimalMoves = g.preCompute(g.activeGoal.position)
+	g.precomputedMoves = g.preCompute(g.activeGoal.position)
 	res := g.solve(18)
 	moves, _ := parseMoves(res)
 
@@ -31,7 +31,7 @@ func BenchmarkRenderGif(b *testing.B) {
 	for {
 		g = randomGame()
 
-		g.optimalMoves = g.preCompute(g.activeGoal.position)
+		g.precomputedMoves = g.preCompute(g.activeGoal.position)
 		res := g.solve(18)
 		moves, _ = parseMoves(res)
 		if len(moves) > 10 {

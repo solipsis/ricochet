@@ -1,8 +1,11 @@
 package main
 
 import (
+	"fmt"
+	"log"
 	"math/rand"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -31,7 +34,9 @@ var possibleRobots = []byte{'R', 'G', 'B', 'Y'}
 
 func randomGame() *game {
 	//g := parseBoard(fullBoard)
-	g := parseBoard(randomBoard())
+	boardStr, quadrants := randomBoard()
+	g := parseBoard(boardStr, quadrants)
+	//g.quadrants = quandrants
 	// select random goal
 	rand.Seed(time.Now().UnixNano())
 	goalIdx := rand.Intn(len(g.goals))
@@ -71,6 +76,77 @@ func randomGame() *game {
 			}
 		}
 	}
+	id, err := encode(&g)
+	if err != nil {
+		log.Printf("unable to encode random game: %v", err)
+	}
+	g.id = id
 
 	return &g
+}
+
+func lookForSolutions(s *server) {
+	s.isSearching = true // not thread-safe but probably will never matter
+	var wg sync.WaitGroup
+	for x := 0; x < 4; x++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+
+			for {
+				if len(s.categorizer.easy) == gameBuffer && len(s.categorizer.medium) == gameBuffer && len(s.categorizer.hard) == gameBuffer {
+					break
+				}
+
+				rg := randomGame()
+				rg.precomputedMoves = rg.preCompute(rg.activeGoal.position)
+				res := rg.solve(20)
+				moves, _ := parseMoves(res)
+				numMoves := len(moves)
+				rg.lenOptimalSolution = numMoves
+
+				// Add solution to proper buffer. Discard if that buffer already has enough solutions
+				// of that length
+				if numMoves >= 6 && numMoves <= 8 {
+					select {
+					case s.categorizer.easy <- rg:
+						rg.difficulty = EASY
+						fmt.Println("Easy found:")
+					default:
+						//			fmt.Println("discarding easy")
+					}
+				} else if numMoves >= 9 && numMoves <= 12 {
+					select {
+					case s.categorizer.medium <- rg:
+						rg.difficulty = MEDIUM
+						fmt.Println("Medium found:")
+					default:
+						//			fmt.Println("discarding medium")
+					}
+				} else if numMoves >= 13 && numMoves <= 16 {
+					select {
+					case s.categorizer.hard <- rg:
+						rg.difficulty = HARD
+						fmt.Println("Hard found:", numMoves)
+					default:
+						fmt.Println("Hard found:", numMoves)
+						//			fmt.Println("discarding hard")
+					}
+				} else if numMoves >= 17 && numMoves <= 20 {
+					fmt.Println("EXTREME found:", numMoves)
+					select {
+					case s.categorizer.extreme <- rg:
+						rg.difficulty = EXTREME
+						fmt.Println("EXTREME found:", numMoves)
+					default:
+						//			fmt.Println("discarding hard")
+					}
+				}
+
+			}
+		}()
+	}
+	wg.Wait()
+	s.isSearching = false
+
 }

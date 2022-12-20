@@ -13,19 +13,21 @@ type Goal struct {
 }
 
 type game struct {
-	size         int
-	board        []square
-	moves        []move
-	robots       map[byte]*robot
-	activeRobot  *robot
-	goals        []Goal
-	activeGoal   Goal
-	visits       int
-	cache        map[uint32]int
-	optimalMoves []uint32
+	size             int
+	board            []square
+	moves            []move
+	robots           map[byte]*robot
+	activeRobot      *robot
+	goals            []Goal
+	activeGoal       Goal
+	visits           int
+	cache            map[uint32]int
+	precomputedMoves []uint32
+	id               string
 
+	difficulty         difficulty
+	quadrants          []int
 	lenOptimalSolution int
-	difficultyName     string
 }
 
 const (
@@ -149,11 +151,26 @@ func (g *game) move(r *robot, dir direction) bool {
 		end = next
 	}
 
+	/* TODO: investigate #4HhM5C1g7B7A67Vy. I think its because the decoding didn't set robot bits
 	g.board[r.position] = g.board[r.position] ^ square(ROBOT)
 	g.board[end] = g.board[end] ^ square(ROBOT)
+	*/
+	g.board[r.position] = g.board[r.position] &^ square(ROBOT)
+	g.board[end] = g.board[end] | square(ROBOT)
+
 	r.position = end
 
 	return true
+}
+
+func (g *game) countRobotBits() {
+	count := 0
+	for _, b := range g.board {
+		if b&square(ROBOT) != 0 {
+			count += 1
+		}
+	}
+	fmt.Println(count)
 }
 
 func (g *game) search(depth int, maxDepth int) bool {
@@ -164,7 +181,7 @@ func (g *game) search(depth int, maxDepth int) bool {
 	}
 
 	// if too far from optimalMoves needed to get to goal give up
-	optimalMoves := int(g.optimalMoves[g.activeRobot.position])
+	optimalMoves := int(g.precomputedMoves[g.activeRobot.position])
 	if optimalMoves > maxDepth-depth {
 		return false
 	}
@@ -247,6 +264,12 @@ func (g *game) search(depth int, maxDepth int) bool {
 }
 
 func (g *game) solve(maxDepth int) string {
+	// games are long lived so we want gc to clean up solve cache which won't be used again
+	cleanup := func() {
+		g.cache = nil
+	}
+	defer cleanup()
+
 	for currentMaxDepth := 1; currentMaxDepth < maxDepth; currentMaxDepth++ {
 		success := g.search(0, currentMaxDepth)
 		//fmt.Println("cache-size:", len(g.cache))
@@ -367,7 +390,7 @@ func (g *game) setRobot(id byte, pos uint32) {
 	}
 }
 
-func parseBoard(input string) game {
+func parseBoard(input string, quadrants []int) game {
 	/*(
 		input := `•---•---•---•
 	| R     | B |
@@ -436,11 +459,10 @@ func parseBoard(input string) game {
 		activeRobot: robots['R'],
 		activeGoal:  goals[0],
 		cache:       make(map[uint32]int),
+		quadrants:   quadrants,
 	}
 
-	// ~ 1.8 mil states before compute
 	return g
-
 }
 
 func (g *game) clone() game {
@@ -465,6 +487,7 @@ func (g *game) clone() game {
 		activeRobot: robots[g.activeRobot.id],
 		goals:       goals,
 		activeGoal:  g.activeGoal,
+		id:          g.id,
 	}
 	return ng
 }
